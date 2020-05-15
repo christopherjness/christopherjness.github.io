@@ -5,6 +5,23 @@ body {
     margin: 0;
 }
 
+badge {
+    vertical-align: middle;
+    display: inline-block;
+    height: 65px;    
+}
+
+paper {
+    vertical-align: middle;
+    height: 35px;
+    display: inline-block;
+}
+paper:after {
+    content:"\a";
+    white-space: pre;
+}
+
+
 
 h1 {
     font-size: 24px;
@@ -41,7 +58,7 @@ a {
     margin-bottom: 40px;
     width: 75%;
     background-color: rgba(150, 150, 190, 0.3);
-    padding: 30px;
+    padding: 20px;
 }
 
 
