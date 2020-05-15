@@ -8,15 +8,16 @@ body {
 badge {
     vertical-align: middle;
     display: inline-block;
-    height: 165px;  
+    height: 65px;  
     background-color: rgba(250, 150, 190, 0.3);
 }
 
 paper {
     vertical-align: middle;
-    height: 135px;
+    height: 35px;
     display: inline-block;
     background-color: rgba(150, 250, 190, 0.3);
+    margin-top: 0px;
 }
 
 
