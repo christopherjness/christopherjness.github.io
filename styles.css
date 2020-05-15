@@ -12,7 +12,7 @@ badge {
 }
 
 paper {
-    vertical-align: middle;
+    vertical-align: top;
     height: 135px;
     display: inline-block;
 }
