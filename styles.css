@@ -1,7 +1,7 @@
 body {
     font-size: 14px;
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-    font-weight: 300;
+    font-weight: 600;
     margin: 0;
 }
 
@@ -16,10 +16,7 @@ paper {
     height: 135px;
     display: inline-block;
 }
-paper:after {
-    content:"\a";
-    white-space: pre;
-}
+
 
 
 
