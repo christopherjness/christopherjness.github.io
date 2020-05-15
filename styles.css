@@ -1,7 +1,7 @@
 body {
     font-size: 14px;
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-    font-weight: 600;
+    font-weight: 300;
     margin: 0;
 }
 
@@ -55,7 +55,7 @@ a {
     margin-bottom: 40px;
     width: 75%;
     background-color: rgba(150, 150, 190, 0.3);
-    padding: 20px;
+    padding: 0px;
 }
 
 
