@@ -8,14 +8,15 @@ body {
 badge {
     vertical-align: middle;
     display: inline-block;
-    height: 65px;  
+    padding-bottom: 5px;
 }
 
 paper {
     vertical-align: middle;
-    height: 35px;
     display: inline-block;
     margin-top: 0px;
+    width: 80%;
+    padding-bottom: 5px;
 }
 
 
@@ -68,7 +69,6 @@ a {
     position: absolute;
     top: 0;
     bottom: 0px;
-    width: 100%;
 }
 
 
