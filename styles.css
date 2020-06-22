@@ -20,6 +20,24 @@ paper {
 }
 
 
+photo {
+    vertical-align: middle;
+    display: inline-block;
+    width: 160px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+}
+
+bio {
+    vertical-align: middle;
+    display: inline-block;
+    padding-bottom: 5px;
+    padding-top: 5px;
+    width: 60%;
+        
+}
+
+
 
 high {
     font-size: 14px;
