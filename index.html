@@ -1,8 +1,31 @@
 <!DOCTYPE html>
+
+<!--
+            <photo>
+            <a><img border="1" src="images/photo.png" width="150"></a>  
+            </photo>
+-->
+
 <html>
     <head>
         <title>Chris Ness</title>
         <link rel="stylesheet" href="styles.css">
+        
+<script type="text/javascript">
+  var imageURLs = [
+       "images/photo_1.png"
+     , "images/photo_2.png"
+     , "images/photo_3.png"
+     , "images/photo_4.png"
+  ];
+  function getImageTag() {
+    var img = '<img border="1" width="200" src=\"';
+    var randomIndex = Math.floor(Math.random() * imageURLs.length);
+    img += imageURLs[randomIndex];
+    img += '\" alt=\"Some alt text\"/>';
+    return img;
+  }
+</script>
     </head>
     
     <body> 
@@ -16,7 +39,7 @@
         <!-- <a href="https://www.pem.cam.ac.uk/college/master-and-fellows/list-fellows/dr-christopher-ness" target="_blank">[College website]</a><br><br>-->
 
             <photo>
-            <a><img border="1" src="images/photo.png" width="150"></a>  
+            <script type="text/javascript">document.write(getImageTag())</script>  
             </photo>
 
             <bio>
