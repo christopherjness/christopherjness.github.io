@@ -1,0 +1,186 @@
+LAMMPS (5 Jun 2019)
+# SETTINGS
+atom_style	sphere
+comm_modify	mode single vel yes
+
+# GENERATE A CUBIC SIMULATON BOX
+boundary	p p p
+region		reg prism 0 14.6381 0 14.6381 0 14.6381 0 0 0 units box
+create_box	2 reg
+Created triclinic box = (0 0 0) to (14.6381 14.6381 14.6381) with tilt (0 0 0)
+  1 by 1 by 1 MPI processor grid
+
+# GENERATE THE PARTICLES AND SPECIFY THEIR SIZE
+create_atoms 1 random 100 123456 NULL
+Created 100 atoms
+  create_atoms CPU = 0.000350952 secs
+create_atoms 2 random 100 123457 NULL
+Created 100 atoms
+  create_atoms CPU = 1.09673e-05 secs
+set type 1 diameter 2.8
+  100 settings made for diameter
+set type 2 diameter 2
+  100 settings made for diameter
+set type 1 density 1
+  100 settings made for density
+set type 2 density 1
+  100 settings made for density
+
+# SPECIFY THE PARTICLE-PARTICLE INTERACTION
+pair_style granular
+pair_coeff * * hooke 10000 0 tangential linear_history 7000 0 0.1
+
+# SPECIFY THE TIMESTEP, THE INTEGRATION SCHEME AND RUN
+fix		1 all nve/sphere
+fix     2 all viscous 0.1
+timestep	0.0001
+
+thermo_style	custom time ke
+thermo 10000
+dump	id all custom 1000 data.dump id x y z radius mass
+
+run 1000000
+Neighbor list info ...
+  update every 1 steps, delay 10 steps, check yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 3.1
+  ghost atom cutoff = 3.1
+  binsize = 1.55, bins = 10 10 10
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair granular, perpetual
+      attributes: half, newton on, size, history
+      pair build: half/size/bin/newton/tri
+      stencil: half/bin/3d/newton/tri
+      bin: standard
+Per MPI rank memory allocation (min/avg/max) = 11.27 | 11.27 | 11.27 Mbytes
+Time KinEng 
+           0            0 
+           1    259.50662 
+           2    51.186572 
+           3    14.296055 
+           4    6.3839912 
+           5    3.2968969 
+           6     1.956706 
+           7     1.339159 
+           8   0.91490716 
+           9   0.66780775 
+          10    0.5349598 
+          11   0.41354736 
+          12   0.32819527 
+          13   0.26090806 
+          14   0.22199504 
+          15   0.17852769 
+          16    0.1570493 
+          17   0.13544283 
+          18    0.1136833 
+          19    0.1038554 
+          20  0.091512596 
+          21  0.079678642 
+          22  0.069943911 
+          23  0.060306433 
+          24  0.055715303 
+          25  0.050193014 
+          26  0.045014638 
+          27  0.040720168 
+          28  0.036880262 
+          29  0.033878517 
+          30  0.031214671 
+          31  0.028930278 
+          32   0.02653606 
+          33  0.024472181 
+          34  0.022979423 
+          35  0.021085213 
+          36  0.019900778 
+          37  0.018219909 
+          38  0.017014298 
+          39  0.015998476 
+          40  0.015151449 
+          41  0.014476473 
+          42  0.013576558 
+          43  0.012538847 
+          44  0.011844497 
+          45  0.011018025 
+          46  0.010484044 
+          47 0.0098975784 
+          48 0.0093156602 
+          49  0.008877771 
+          50 0.0083962963 
+          51 0.0079239682 
+          52  0.007485575 
+          53 0.0069017072 
+          54 0.0066387835 
+          55 0.0063231927 
+          56 0.0059201682 
+          57 0.0056780579 
+          58 0.0053666833 
+          59 0.0050231113 
+          60 0.0048304276 
+          61 0.0045957169 
+          62 0.0043774084 
+          63 0.0041758147 
+          64  0.004042607 
+          65  0.003838803 
+          66 0.0036759342 
+          67 0.0034904973 
+          68 0.0033269228 
+          69 0.0031782173 
+          70 0.0030397811 
+          71 0.0029192137 
+          72 0.0027863938 
+          73 0.0026858789 
+          74 0.0025751484 
+          75 0.0024575742 
+          76 0.0023801139 
+          77 0.0023000168 
+          78 0.0022062256 
+          79 0.0021321775 
+          80 0.0020565595 
+          81 0.0019707867 
+          82 0.0019074737 
+          83 0.0018181912 
+          84 0.0017547191 
+          85 0.0016741978 
+          86 0.0016184745 
+          87 0.0015634345 
+          88 0.0015050857 
+          89 0.0014395202 
+          90 0.0014042975 
+          91 0.0013626712 
+          92 0.0013217272 
+          93 0.0012782892 
+          94 0.0012315119 
+          95 0.0011919542 
+          96 0.0011439113 
+          97 0.0011076132 
+          98 0.0010700928 
+          99 0.0010340303 
+         100 0.0010015304 
+Loop time of 17.7924 on 1 procs for 1000000 steps with 200 atoms
+
+Performance: 485600.564 tau/day, 56203.769 timesteps/s
+95.9% CPU use with 1 MPI tasks x no OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 6.6361     | 6.6361     | 6.6361     |   0.0 | 37.30
+Neigh   | 0.063494   | 0.063494   | 0.063494   |   0.0 |  0.36
+Comm    | 5.9848     | 5.9848     | 5.9848     |   0.0 | 33.64
+Output  | 0.31993    | 0.31993    | 0.31993    |   0.0 |  1.80
+Modify  | 3.8166     | 3.8166     | 3.8166     |   0.0 | 21.45
+Other   |            | 0.9715     |            |       |  5.46
+
+Nlocal:    200 ave 200 max 200 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:    400 ave 400 max 400 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:    560 ave 560 max 560 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 560
+Ave neighs/atom = 2.8
+Neighbor list builds = 659
+Dangerous builds = 0
+
+write_data data.file nofix
+Total wall time: 0:00:17
