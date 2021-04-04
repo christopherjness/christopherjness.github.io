@@ -10,7 +10,10 @@
     <head>
         <title>LAMMPS</title>
         <link rel="stylesheet" href="styles.css">
-        
+        <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+        <script id="MathJax-script" async
+                src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+        </script>
 
     </head>
     
@@ -27,8 +30,11 @@
         <img src="lammps_files/snapshot.png" height="200">
         <br>
           <ol>
+            <h2>Get started</h2>
             <li>Read the tutorial here: <u><a href="https://www.overleaf.com/read/jfjbbhhfbgtc" target="_blank">https://www.overleaf.com/read/jfjbbhhfbgtc</a></u>
             </li>
+            <br>
+            <h2>Download and compile LAMMPS</h2>
             <li>Download a LAMMPS distribution (I used: <u><a href="https://github.com/lammps/lammps/releases/tag/stable_5Jun2019" target="_blank">LAMMPS Stable 5th June 2019</a></u>)
                 <br>
                 [<u><a href="https://github.com/lammps/lammps/archive/refs/tags/stable_5Jun2019.zip" target="_blank">Click here to download the .zip</a></u>]
@@ -43,15 +49,19 @@
             </li>
             <li>Enter the directory: <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/STUBS/</a> and issue the command: <a style="font-family:'Courier New'">make</a>
             </li>
+            <br>
+            <h2>Generate packing at prescribed volume fraction $\phi$</h2>
+            <li>Input script to generate a particle packing: <u><a href="lammps_files/in.create" download>in.create</a></u>
+            </li>
+            <li>Download a <u><a href="Lammps_files/in.create.mp4" download>video of in.create simulation</a></u>
+            </li>
+            <br>
+            <h2>Run a rheology simulation</h2>
+            <li>Input script to shear the particle packing: <u><a href="Lammps_files/in.run" download>in.run</a></u>
+            </li>
           </ol>
         
-        
-        <br><br>
-        Input script to generate a particle packing: <u><a href="lammps_files/in.create" download>in.create</a></u>
-        <br>
-        Download a <u><a href="Lammps_files/in.create.mp4" download>video of in.create simulation</a></u>
-        <br>
-        Input script to shear the particle packing: <u><a href="Lammps_files/in.run" download>in.run</a></u>
+      
         
         <br><br>
         Animations are generated using <u><a href="https://www.ovito.org/" target="_blank">Ovito</a></u>. Always refer to the <u><a href="https://lammps.sandia.gov/" target="_blank">LAMMPS website</a></u>. Contact me: chris.ness@ed.ac.uk.
