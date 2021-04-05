@@ -1,11 +1,5 @@
 <!DOCTYPE html>
 
-<!--
-            <photo>
-            <a><img border="1" src="images/photo.png" width="150"></a>  
-            </photo>
--->
-
 <html>
     <head>
         <title>LAMMPS</title>
@@ -24,22 +18,31 @@
 
         <h1>DENSE SUSPENSIONS<span style="font-weight:normal"> LAMMPS TUTORIAL</span></h1><br>
         <br>
-        Welcome...
-        This tutorial assumes you are using Mac or Linux and that you have a working knowledge of the terminal.
-        <br>
         <img src="lammps_files/snapshot.png" height="200">
         <br>
-          <ol>
+          <ol start="1">
             <h2>Get started</h2>
-            <li>Read the tutorial here: <u><a href="https://www.overleaf.com/read/jfjbbhhfbgtc" target="_blank">https://www.overleaf.com/read/jfjbbhhfbgtc</a></u>
+            <li>Familiarise yourself with the physics of dense suspensions by reading e.g. 
+            <u><a href="https://doi.org/10.1017/jfm.2018.548" target="_blank">Guazzelli and Pouliquen</a></u>
+            </li>
+            <li>Next read the tutorial <u><a href="https://www.overleaf.com/read/jfjbbhhfbgtc" target="_blank">here</a></u>.
+            Other pedagogic articles <u><a href="https://arxiv.org/abs/2005.12755" target="_blank">are available</a></u>
+            </li>
+            <li>The following assumes you are using Mac or Linux and that you have a working knowledge of the terminal.
             </li>
             <br>
             <h2>Download and compile LAMMPS</h2>
             <li>Download a LAMMPS distribution (I used: <u><a href="https://github.com/lammps/lammps/releases/tag/stable_5Jun2019" target="_blank">LAMMPS Stable 5th June 2019</a></u>)
                 <br>
-                [<u><a href="https://github.com/lammps/lammps/archive/refs/tags/stable_5Jun2019.zip" target="_blank">Click here to download the .zip</a></u>]
-                <br>
-                [<u><a href="https://github.com/lammps/lammps/archive/refs/tags/stable_5Jun2019.tar.gz" target="_blank">Click here to download the .tar.gz</a></u>]
+                [Click <u><a href="https://github.com/lammps/lammps/archive/refs/tags/stable_5Jun2019.zip" target="_blank">here</a></u> to download the .zip
+                or
+                <u><a href="https://github.com/lammps/lammps/archive/refs/tags/stable_5Jun2019.tar.gz" target="_blank">here</a></u> to download the .tar.gz]
+            </li>
+            <li>Enter the directory: <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/</a>
+            </li>
+            <li>Issue the command: <a style="font-family:'Courier New'">make yes-GRANULAR</a>
+            </li>
+            <li>Issue the command: <a style="font-family:'Courier New'">make yes-COLLOID</a>
             </li>
             <li>Download the lubrication
                 <u><a href="lammps_files/pair_lubricate_bmpoly.cpp" download> .cpp file</a></u> file
@@ -48,6 +51,12 @@
                 <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/</a>
             </li>
             <li>Enter the directory: <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/STUBS/</a> and issue the command: <a style="font-family:'Courier New'">make</a>
+            </li>
+            <li>In my version of Mac (10.15.5) it is necessary to change the compiler settings by entering the directory: <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/MAKE/</a><br> and issuing the command: <a style="font-family:'Courier New'">sed -i '' 's/g++/g++-9/g' Makefile.serial</a>
+            </li>
+            <li>LAMMPS can then be compiled by entering the directory: <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/</a> and issuing the command: <a style="font-family:'Courier New'">make serial</a>
+            </li>
+            <li>If successful, you can view the installed packages by running: <a style="font-family:'Courier New'">./lmp_serial -h</a>
             </li>
             <br>
             <h2>Generate packing at prescribed volume fraction</h2>
