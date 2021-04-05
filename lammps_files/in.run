@@ -18,7 +18,7 @@ compute		4_2 all pressure Temp
 # SPECIFY THE OUTPUTS
 thermo_style	custom time c_4_2[1] c_4_2[2] c_4_2[3] c_4_2[4] c_4_2[5] c_4_2[6]
 thermo 20000
-dump	id all custom 20000 data.dump id x y z radius mass 
+dump	id all custom 2000 data.dump id x y z radius mass 
 
 # SPECIFY THE TIMESTEP, THE INTEGRATION SCHEME AND RUN
 timestep	0.0001
