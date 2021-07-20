@@ -30,4 +30,4 @@ dump	id all custom 1000 data.dump id x y z radius mass
 
 run 1000000
 
-write_data data.file nofix
+write_data data.file
