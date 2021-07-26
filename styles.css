@@ -89,8 +89,8 @@ a {
     margin: auto;
     margin-bottom: 20px;
     width: 75%;
-    background-color: rgba(150, 180, 190, 0.3);
-    padding: 20px;
+    background-color: rgba(150, 190, 170, 0.3);
+    padding: 15px;
 }
 
 .center3-div
@@ -98,15 +98,25 @@ a {
     margin: auto;
     margin-bottom: 20px;
     width: 75%;
-    background-color: rgba(180, 150, 190, 0.3);
-    padding: 20px;
+    background-color: rgba(190, 150, 150, 0.3);
+    padding: 15px;
+}
+
+
+.center3a-div
+{
+    margin: auto;
+    margin-bottom: 20px;
+    width: 65%;
+    background-color: rgba(190, 150, 150, 0.3);
+    padding: 15px;
 }
 
 .center4-div
 {
     margin: auto;
-    margin-bottom: 20px;
-    width: 75%;
+    margin-bottom: 10px;
+    width: 70%;
     background-color: rgb(255, 255, 255);
     padding: 0px;
 }
