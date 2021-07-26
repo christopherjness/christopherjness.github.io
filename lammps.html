@@ -13,71 +13,141 @@
         <div class="center-div">
 
         <h1>DENSE SUSPENSIONS<span style="font-weight:normal"> LAMMPS TUTORIAL</span></h1><br>
-        <br>
-        <img src="lammps_files/snapshot.png" height="200">
-        <br>
-          <ol start="1">
-            <h2>Get started</h2>
-            <li>Familiarise yourself with the physics of dense suspensions by reading e.g. 
-            <u><a href="https://hal.archives-ouvertes.fr/hal-01902053/document" target="_blank">Guazzelli and Pouliquen</a></u>
-            or
-            <u><a href="https://arxiv.org/abs/2105.04162" target="_blank">Ness, Seto and Mari</a></u>.
-            </li>
-            <li style="color:red">Read the tutorial <u><a style="color:red" href="lammps_files/CJN_tutorial.pdf" target="_blank">here</a></u>.
-            </li>
-            <li>The following assumes you are using Mac or Linux and that you have a working knowledge of the terminal.
-            </li>
-            <br>
-            <h2>Download and compile LAMMPS</h2>
-            <li>Download a LAMMPS distribution (I used: <u><a href="https://github.com/lammps/lammps/releases/tag/stable_5Jun2019" target="_blank">LAMMPS Stable 5th June 2019</a></u>)
-                <br>
-                [Click <u><a href="https://github.com/lammps/lammps/archive/refs/tags/stable_5Jun2019.zip" target="_blank">here</a></u> to download the .zip
-                or
-                <u><a href="https://github.com/lammps/lammps/archive/refs/tags/stable_5Jun2019.tar.gz" target="_blank">here</a></u> to download the .tar.gz]
-            </li>
-            <li>Using the Terminal, enter the directory: <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/</a>
-            </li>
-            <li>Issue the command: <a style="font-family:'Courier New'">make yes-GRANULAR</a>
-            </li>
-            <li>Issue the command: <a style="font-family:'Courier New'">make yes-COLLOID</a>
-            </li>
-            <li>Download the lubrication
+
+          <bio>
+            <ol start="1">
+              <h2>Get started</h2>
+              <li>Familiarise yourself with the physics of dense suspensions by reading e.g. 
+              <u><a href="https://hal.archives-ouvertes.fr/hal-01902053/document" target="_blank">this</a></u>
+              or
+              <u><a href="https://arxiv.org/abs/2105.04162" target="_blank">this</a></u>.
+              </li>
+              <li style="color:red">This site accompanies the tutorial <u><a style="color:red" href="lammps_files/CJN_tutorial.pdf" target="_blank">here</a></u>.
+              </li>
+              <li>The following assumes you are using Mac or Linux and that you have a working knowledge of the terminal.
+              </li>
+              <br>
+              <h2>Download and set up LAMMPS</h2>
+              <li>Download a LAMMPS distribution
+                (I used: <u><a href="https://github.com/lammps/lammps/releases/tag/stable_5Jun2019" target="_blank">LAMMPS Stable 5th June 2019</a></u>, download the .tar.gz <u><a href="https://github.com/lammps/lammps/archive/refs/tags/stable_5Jun2019.tar.gz" target="_blank">here</a></u>)
+              </li>
+              <li>Download the lubrication
                 <u><a href="lammps_files/pair_lubricate_bmpoly.cpp" download> .cpp file</a></u>
                 and <u><a href="lammps_files/pair_lubricate_bmpoly.h" download> .h file</a></u>
                 and place these in the directory:
                 <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/</a>
             </li>
-            <li>Enter the directory: <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/STUBS/</a> and issue the command: <a style="font-family:'Courier New'">make</a>
+            <li>Download the input scripts
+            <u><a href="lammps_files/in.create" style="font-family:'Courier New'" download>in.create</a></u> 
+            and 
+            <u><a href="lammps_files/in.create" style="font-family:'Courier New'" download>in.run</a></u>
+             and place them in the same directory as
+             <a style="font-family:'Courier New'">lammps-stable_5Jun2019</a> is in
             </li>
-            <li>In my version of Mac (10.15.5) it is necessary to change the compiler settings by entering the directory: <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/MAKE/</a><br> and issuing the command: <a style="font-family:'Courier New'">sed -i '' 's/g++/g++-9/g' Makefile.serial</a>
+              <li>In Terminal, enter the directory: <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/</a>
+              </li>
+              <li>Issue the command: <a style="font-family:'Courier New'">make yes-GRANULAR yes-COLLOID</a>
+              </li>
+              </ol>
+          </bio>
+
+          <photo>
+            <img src="lammps_files/snapshot.png" height="200">
+          </photo>
+
+          </div>
+
+          <div class="center4-div");>
+           <h2>Then do:</h2>
+        </div> 
+
+          <div class="center2-div");>
+            <h2>Compile and run serial LAMMPS on a laptop (I used MacOS 10.15.5)</h2>
+            <ol start="9">
+            
+            <li> Ensure that <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/MAKE/Makefile.serial</a> addresses the correct compiler settings for your machine.<br>
+              (I did this using:
+              <a style="font-family:'Courier New'">sed -i '' 's/g++/g++-11/g' lammps-stable_5Jun2019/src/MAKE/Makefile.serial</a>,
+              but see <u><a href="https://docs.lammps.org/Build_make.html" target="_blank">the documentation</a></u>)
             </li>
-            <li>LAMMPS can then be compiled by entering the directory: <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/</a> and issuing the command: <a style="font-family:'Courier New'">make serial</a>
+            <li>Compile LAMMPS by entering the directory: <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/</a> and issuing the command: <a style="font-family:'Courier New'">make serial</a>
             </li>
             <li>If successful, you can view the installed packages by running: <a style="font-family:'Courier New'">./lmp_serial -h</a>
             </li>
             <br>
             <h2>Generate packing at prescribed volume fraction</h2>
-            <li>Download the input script to generate a particle packing: <u><a href="lammps_files/in.create" download>in.create</a></u> and place it in the same directory as <a style="font-family:'Courier New'">lammps-stable_5Jun2019</a> is in
-            </li>
             <li>Issue the command: <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/src/lmp_serial -in in.create</a>
             </li>
-            <li>Download a <u><a href="lammps_files/in.create.mp4" download>video of in.create simulation</a></u>
+            <li>
+              The output
+              <a style="font-family:'Courier New'">data.file</a> contains the starting configuration to be used by <a style="font-family:'Courier New'">in.run</a>
             </li>
             <br>
             <h2>Run a rheology simulation</h2>
-            <li>Download the input script to shear the particle packing: <u><a href="lammps_files/in.run" download>in.run</a></u> and place it in the same directory as <a style="font-family:'Courier New'">lammps-stable_5Jun2019</a> is in
-            </li>
             <li>Issue the command: <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/src/lmp_serial -in in.run</a>
             </li>
-            <li>Download a <u><a href="lammps_files/in.run.mp4" download>video of in.run simulation</a></u>
-            </li>
-            <li>That's it! Further description of the outputs generated by LAMMPS can be found <u><a href="https://www.overleaf.com/read/jfjbbhhfbgtc" target="_blank">here</a></u>.</li>
+          </ol>
+        </div> 
+
+        <div class="center4-div");>
+          <h2>OR:</h2>
+       </div> 
+
+        
+          <div class="center3-div">  
+            <h2>Compile and run parallel LAMMPS on a cluster (I used <u><a href="https://www.ecdf.ed.ac.uk" target="_blank">Eddie</a></u>)</h2>
+
+          <ol start="9">
+
+            <li>
+              Ensure the appropriate compiler is available. On Scientific Linux I ran: <a style="font-family:'Courier New'">module load openmpi/1.10.1</a>
+              </li>
+              <li>
+            Compile LAMMPS by entering the directory: <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/</a> and issuing the command: <a style="font-family:'Courier New'">make mpi</a>
+          </li>
+          <li>If successful, you can view the installed packages by running: <a style="font-family:'Courier New'">./lmp_mpi -h</a>
+          </li>
+          <br>
+          <h2>Generate packing at prescribed volume fraction</h2>
+          <li>Issue the command: <a style="font-family:'Courier New'">mpirun -np 2 lammps-stable_5Jun2019/src/src/lmp_mpi -in in.create</a>
+          </li>
+          <li>
+            The output
+            <a style="font-family:'Courier New'">data.file</a> contains the starting configuration to be used by <a style="font-family:'Courier New'">in.run</a>
+          </li>
+          <br>
+          <h2>Run a rheology simulation</h2>
+          <li>Issue the command: <a style="font-family:'Courier New'">mpirun -np 2 lammps-stable_5Jun2019/src/src/lmp_mpi -in in.run</a>
+          </li>
+          
+        </ol>
+        </div>
+     
+        <div class="center4-div");>
+          <h2>Finally:</h2>
+       </div> 
+
+
+        <div class="center-div">  
+          <ol start="15">
+            
+            <li><a style="font-family:'Courier New'">*.dump</a> files can be used to generate animations with <u><a href="https://www.ovito.org/" target="_blank">Ovito</a></u></li>
+            <li><a style="font-family:'Courier New'">run.log</a> contains the components of the stress tensor</li>
+            <li>Always refer to the <u><a href="https://lammps.sandia.gov/" target="_blank">LAMMPS documentation</a></u></li>
+            <li>Refer to your local IT support for compilation questions</li>
+            <li>Contact me: chris.ness@ed.ac.uk</li>
+            <li>That's it! Further detail is in the tutorial <u><a href="lammps_files/CJN_tutorial.pdf" target="_blank">here</a></u></li>
           </ol>
 
-        <br><br>
-        Animations are generated using <u><a href="https://www.ovito.org/" target="_blank">Ovito</a></u>. Always refer to the <u><a href="https://lammps.sandia.gov/" target="_blank">LAMMPS website</a></u>. Contact me: chris.ness@ed.ac.uk.
 
-        </div> 
+
+        </div>
+        <br>
+
+       
+   
+
+        
         </div>    
     </body>
 </html>
