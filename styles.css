@@ -84,39 +84,29 @@ a {
     padding: 15px;
 }
 
-.center2-div
+.centes-div
 {
     margin: auto;
     margin-bottom: 20px;
     width: 75%;
-    background-color: rgba(150, 190, 170, 0.3);
-    padding: 15px;
+    background-color: rgba(150, 180, 190, 0.3);
+    padding: 20px;
 }
 
-.center3-div
+.centet-div
 {
     margin: auto;
     margin-bottom: 20px;
     width: 75%;
-    background-color: rgba(190, 150, 150, 0.3);
-    padding: 15px;
+    background-color: rgba(180, 150, 190, 0.3);
+    padding: 20px;
 }
 
-
-.center3a-div
+.centeu-div
 {
     margin: auto;
     margin-bottom: 20px;
-    width: 65%;
-    background-color: rgba(190, 150, 150, 0.3);
-    padding: 15px;
-}
-
-.center4-div
-{
-    margin: auto;
-    margin-bottom: 10px;
-    width: 70%;
+    width: 75%;
     background-color: rgb(255, 255, 255);
     padding: 0px;
 }
