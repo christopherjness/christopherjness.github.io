@@ -1,5 +1,5 @@
 # SETTINGS
-atom style sphere
+atom_style sphere
 comm_modify mode single vel yes
 
 # GENERATE A CUBIC, PERIODIC SIMULATION BOX
@@ -8,16 +8,16 @@ region reg prism 0 14.6381 0 14.6381 0 14.6381 0 0 0 units box
 create box 2 reg
 
 # GENERATE THE PARTICLES AND SPECIFY THEIR SIZE
-create atoms 1 random 100 123456 NULL
-create atoms 2 random 100 123457 NULL
+create_atoms 1 random 100 123456 NULL
+create_atoms 2 random 100 123457 NULL
 set type 1 diameter 2.8
 set type 2 diameter 2
 set type 1 density 1
 set type 2 density 1
 
 # SPECIFY THE PARTICLE-PARTICLE INTERACTION
-pair style granular
-pair coeff * * hooke 10000 0 tangential linear history 7000 0 0.1
+pair_style granular
+pair_coeff * * hooke 10000 0 tangential linear history 7000 0 0.1
 
 # SPECIFY THE OUTPUTS
 thermo 10000
@@ -31,4 +31,4 @@ fix 2 all viscous 1.88
 run 1000000
 
 # WRITE AN OUTPUT FILE
-write data data.file
+write_data data.file
