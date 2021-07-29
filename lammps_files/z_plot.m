@@ -1,5 +1,5 @@
  clear; close all;
-data = read_log(['log.lammps'],1)
+data = read_log(['run.log'],1)
  
  
  strain =  0.01*data.data(2:end,1);

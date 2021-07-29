@@ -1,0 +1,31 @@
+LAMMPS (5 Jun 2019)
+# SETTINGS
+atom_style	sphere
+comm_modify	mode single vel yes
+newton off
+
+# READ THE PARTICLE CONFIGURATION
+read_data data.file
+  triclinic box = (0 0 0) to (14.6381 14.6381 14.6381) with tilt (0 0 0)
+  1 by 1 by 1 MPI processor grid
+  reading atoms ...
+  200 atoms
+  reading velocities ...
+  200 velocities
+  read_data CPU = 0.00116611 secs
+
+# SPECIFY THE PARTICLE-PARTICLE INTERACTION
+pair_style hybrid/overlay granular lubricate/bmpoly 0.1 1 1 0.001 0.05 1 0
+pair_coeff * * granular hooke 10000 0 tangential linear_history 7000 0 0.1
+pair_coeff * * lubricate/bmpoly
+
+# DO THE STRESS CALC
+compute Temp all temp/profile 1 1 1 xyz 10 10 10
+compute		str  all pressure Temp
+
+# SPECIFY THE OUTPUTS
+thermo_style	custom time c_str[1] c_str[2] c_str[3] c_str[4] c_str[5] c_str[6]
+thermo          10000
+thermo_modify format line "%.0f %12.4e %12.4e %12.4e %12.4e %12.4e %12.4e"
+dump            id all custom 10000 run.dump id x y z radius
+log run.log
