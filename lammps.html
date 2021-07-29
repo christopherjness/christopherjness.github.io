@@ -97,8 +97,8 @@
             
             <li> Ensure that <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/MAKE/Makefile.serial</a> addresses the correct compiler settings for your machine.<br>
               (Probably not necessary on Linux, but on Mac I did:
-              <a style="font-family:'Courier New'">sed -i '' 's/g++/g++-11/g' lammps-stable_5Jun2019/src/MAKE/Makefile.serial</a>,
-              but see <u><a href="https://docs.lammps.org/Build_make.html" target="_blank">the documentation</a></u>)
+              <a style="font-family:'Courier New'">sed -i '' 's/g++/g++-11/g' MAKE/Makefile.serial</a> from within <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/</a>,
+              see also <u><a href="https://docs.lammps.org/Build_make.html" target="_blank">the documentation</a></u>)
             </li>
             <li>Compile LAMMPS by entering the directory: <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/</a> and issuing the command: <a style="font-family:'Courier New'">make serial</a>
             </li>
