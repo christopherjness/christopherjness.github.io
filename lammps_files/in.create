@@ -5,7 +5,7 @@ comm_modify mode single vel yes
 # GENERATE A CUBIC, PERIODIC SIMULATION BOX
 boundary p p p
 region reg prism 0 14.6381 0 14.6381 0 14.6381 0 0 0 units box
-create box 2 reg
+create_box 2 reg
 
 # GENERATE THE PARTICLES AND SPECIFY THEIR SIZE
 create_atoms 1 random 100 123456 NULL
@@ -17,7 +17,7 @@ set type 2 density 1
 
 # SPECIFY THE PARTICLE-PARTICLE INTERACTION
 pair_style granular
-pair_coeff * * hooke 10000 0 tangential linear history 7000 0 0.1
+pair_coeff * * hooke 10000 0 tangential linear_history 7000 0 0.1
 
 # SPECIFY THE OUTPUTS
 thermo 10000
