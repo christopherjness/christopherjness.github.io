@@ -48,23 +48,22 @@
   <div class="center3-div">
               <h2>I don't already have LAMMPS</h2>
               <ol start="4">
-              <li>Download a LAMMPS distribution
+              <li>Download LAMMPS to a suitable <a style="font-family:'Courier New'">working/</a> directory
                 (I used: <u><a href="https://github.com/lammps/lammps/releases/tag/stable_5Jun2019" target="_blank">LAMMPS Stable 5th June 2019</a></u>, download the .tar.gz <u><a href="https://github.com/lammps/lammps/archive/refs/tags/stable_5Jun2019.tar.gz" target="_blank">here</a></u>)
               </li>
               <li>Download the lubrication
                 <u><a href="lammps_files/pair_lubricate_bmpoly.cpp" download> .cpp file</a></u>
                 and <u><a href="lammps_files/pair_lubricate_bmpoly.h" download> .h file</a></u>
-                and place these in the directory:
-                <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/</a>
+                and place these in:
+                <a style="font-family:'Courier New'">working/lammps-stable_5Jun2019/src/</a>
             </li>
             <li>Download the input scripts
             <u><a href="lammps_files/in.create" style="font-family:'Courier New'" download>in.create</a></u> 
             and 
             <u><a href="lammps_files/in.run" style="font-family:'Courier New'" download>in.run</a></u>
-             and place them in the same directory as
-             <a style="font-family:'Courier New'">lammps-stable_5Jun2019</a> is in
+             and place them in <a style="font-family:'Courier New'">working/</a>
             </li>
-              <li>In Terminal, enter the directory: <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/</a>
+              <li>In Terminal, enter: <a style="font-family:'Courier New'">working/lammps-stable_5Jun2019/src/</a>
               </li>
               <li>Issue the command: <a style="font-family:'Courier New'">make yes-GRANULAR yes-COLLOID</a>
               </li>
@@ -95,18 +94,18 @@
             <h2>Compile and run serial LAMMPS on a laptop (I used MacOS 10.15.5)</h2>
             <ol start="9">
             
-            <li> Ensure that <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/MAKE/Makefile.serial</a> addresses the correct compiler settings for your machine.<br>
+            <li> Ensure that <a style="font-family:'Courier New'">working/lammps-stable_5Jun2019/src/MAKE/Makefile.serial</a> addresses the correct compiler settings for your machine.
               (Probably not necessary on Linux, but on Mac I did:
-              <a style="font-family:'Courier New'">sed -i '' 's/g++/g++-11/g' MAKE/Makefile.serial</a> from within <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/</a>,
+              <a style="font-family:'Courier New'">sed -i '' 's/g++/g++-11/g' MAKE/Makefile.serial</a> from within <a style="font-family:'Courier New'">working/lammps-stable_5Jun2019/src/</a>,
               see also <u><a href="https://docs.lammps.org/Build_make.html" target="_blank">the documentation</a></u>)
             </li>
-            <li>Compile LAMMPS by entering the directory: <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/</a> and issuing the command: <a style="font-family:'Courier New'">make serial</a>
+            <li>Compile LAMMPS by entering: <a style="font-family:'Courier New'">working/lammps-stable_5Jun2019/src/</a> and issuing the command: <a style="font-family:'Courier New'">make serial</a>
             </li>
             <li>If successful, you can view the installed packages by running: <a style="font-family:'Courier New'">./lmp_serial -h</a>
             </li>
             <br>
             <h2>Generate packing at prescribed volume fraction</h2>
-            <li>Issue the command: <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/lmp_serial -in in.create</a>
+            <li>In <a style="font-family:'Courier New'">working/</a>, issue the command: <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/lmp_serial -in in.create</a>
             </li>
             <li>
               The output
@@ -142,13 +141,13 @@
               Ensure the appropriate compiler is available. On Scientific Linux I ran: <a style="font-family:'Courier New'">module load openmpi/1.10.1</a>
               </li>
               <li>
-            Compile LAMMPS by entering the directory: <a style="font-family:'Courier New'">lammps-stable_5Jun2019/src/</a> and issuing the command: <a style="font-family:'Courier New'">make mpi</a>
+            Compile LAMMPS by entering the directory: <a style="font-family:'Courier New'">working/lammps-stable_5Jun2019/src/</a> and issuing the command: <a style="font-family:'Courier New'">make mpi</a>
           </li>
           <li>If successful, you can view the installed packages by running: <a style="font-family:'Courier New'">./lmp_mpi -h</a>
           </li>
           <br>
           <h2>Generate packing at prescribed volume fraction</h2>
-          <li>Issue the command: <a style="font-family:'Courier New'">mpirun -np 2 lammps-stable_5Jun2019/src/lmp_mpi -in in.create</a>
+          <li>In <a style="font-family:'Courier New'">working/</a>, issue the command: <a style="font-family:'Courier New'">mpirun -np 2 lammps-stable_5Jun2019/src/lmp_mpi -in in.create</a>
           </li>
           <li>
             The output
