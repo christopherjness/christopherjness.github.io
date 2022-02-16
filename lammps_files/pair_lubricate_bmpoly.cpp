@@ -68,24 +68,19 @@ PairLubricateBmpoly::PairLubricateBmpoly(LAMMPS *lmp) : PairLubricate(lmp)
 void PairLubricateBmpoly::compute(int eflag, int vflag)
 {
     int i,j,ii,jj,inum,jnum,itype,jtype;
-    double xtmp,ytmp,ztmp,delx,dely,delz,f1x,f1y,f1z,g1x,g1y,g1z;
-    double f2x,f2y,f2z,g2x,g2y,g2z;
-    double rsq,r,h_sep,radi,radj,loggap;
+    double xtmp,ytmp,ztmp,delx,dely,delz,f1x,f1y,f1z,g1x,g1y,g1z,g2x,g2y,g2z;
+    double rsq,r,h_sep,radi,radj;
     double vr1,vr2,vr3,vnnr,vn1,vn2,vn3;
     double nx,ny,nz;
-    double nXwst1,nXwst2,nXwst3,nXvt1,nXvt2,nXvt3;
     double vt1,vt2,vt3;
     double X_A_11, Y_A_11,Y_B_11,Y_B_21,Y_C_12,Y_C_21,Y_C_11,xi,beta,betai;
     double vrcrossn1,vrcrossn2,vrcrossn3;
     double w1cn1,w1cn2,w1cn3,w2cn1,w2cn2,w2cn3;
     double wnni,wnnj,wti1,wti2,wti3,wtj1,wtj2,wtj3;
-
-
-
     double vRS0;
-    double vi[3],vj[3],wi[3],wj[3],xl[3],wf[3];
+    double vi[3],vj[3],wi[3],wj[3],wf[3],vstream[3];
     int *ilist,*jlist,*numneigh,**firstneigh;
-    double lamda[3],vstream[3];
+
     double vxmu2f = force->vxmu2f;
 
     if (eflag || vflag) ev_setup(eflag,vflag);
@@ -218,7 +213,7 @@ void PairLubricateBmpoly::compute(int eflag, int vflag)
                 Y_B_21 = -4*MY_PI*mu*radj*radj*(((betai*(4+betai))/(5*(1+betai)*(1+betai)))*log(1/xi));
                 Y_C_11 =  8*MY_PI*mu*radi*radi*radi*(((2*beta)/(5*(1+beta)))*log(1/xi));
                 Y_C_12 =  8*MY_PI*mu*radi*radi*radi*((beta*beta)/(10*(1+beta))*log(1/xi));
-
+              
                 // relative translational velocity
                 vr1 = vj[0] - vi[0];
                 vr2 = vj[1] - vi[1];
