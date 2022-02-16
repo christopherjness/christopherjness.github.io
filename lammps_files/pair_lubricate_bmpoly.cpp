@@ -84,7 +84,6 @@ void PairLubricateBmpoly::compute(int eflag, int vflag)
 
     double vRS0;
     double vi[3],vj[3],wi[3],wj[3],xl[3],wf[3];
-    double a_sq,a_sh,a_pu,a_tw;
     int *ilist,*jlist,*numneigh,**firstneigh;
     double lamda[3],vstream[3];
     double vxmu2f = force->vxmu2f;
