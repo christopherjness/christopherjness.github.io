@@ -1,7 +1,6 @@
 # SETTINGS
 atom_style	sphere
 comm_modify	mode single vel yes
-newton off
 
 # READ THE PARTICLE CONFIGURATION
 read_data data.file
