@@ -11,8 +11,7 @@ pair_coeff * * granular hooke 10000 0 tangential linear_history 7000 0 0.1
 pair_coeff * * lubricate/bmpoly
 
 # DO THE STRESS CALC
-compute Temp all temp/profile 1 1 1 xyz 10 10 10
-compute		str  all pressure Temp
+compute		str  all pressure NULL pair
 
 # SPECIFY THE OUTPUTS
 thermo_style	custom time c_str[1] c_str[2] c_str[3] c_str[4] c_str[5] c_str[6]
