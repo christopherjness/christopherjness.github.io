@@ -308,7 +308,7 @@ void PairLubricateBmpoly::compute(int eflag, int vflag)
 
                 //if (evflag) ev_tally_xyz(i,nlocal,nlocal,0,0.0,0.0,f1x,f1y,f1z,delx,dely,delz);
                 //v_tally_tensor(i,j,nlocal,newton_pair,f1x*delx,f1y*dely,f1z*delz,0.5*(f1x*dely+f1y*delx),0.5*(f1x*delz+f1z*delx),0.5*(f1y*delz+f1z*dely));
-                v_tally_tensor(i,j,nlocal,newton_pair,-f1x*nx*(radi+radj),-f1y*ny*(radi+radj),-f1z*nz*(radi+radj),-0.5*(f1x*ny+f1y*nx)*(radi+radj),-0.5*(f1x*nz+f1z*nx)*(radi+radj),-0.5*(f1y*nz+f1z*ny)*(radi+radj));
+                v_tally_tensor(i,j,nlocal,newton_pair,-f1x*nx*(radi+radj) + X_A_11*(1/3)*vnnr*(radi+radj),-f1y*ny*(radi+radj)+ X_A_11*(1/3)*vnnr*(radi+radj),-f1z*nz*(radi+radj)+ X_A_11*(1/3)*vnnr*(radi+radj),-0.5*(f1x*ny+f1y*nx)*(radi+radj),-0.5*(f1x*nz+f1z*nx)*(radi+radj),-0.5*(f1y*nz+f1z*ny)*(radi+radj));
             }
         }
     }
