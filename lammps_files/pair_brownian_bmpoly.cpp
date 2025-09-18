@@ -256,7 +256,19 @@ void PairBrownianBmpoly::compute(int eflag, int vflag)
         }
 
         
-        v_tally_tensor(i,j,nlocal,newton_pair,f1x*delx,f1y*dely,f1z*delz,0.5*(f1x*dely+f1y*delx),0.5*(f1x*delz+f1z*delx),0.5*(f1y*delz+f1z*dely));
+        // v_tally_tensor(i,j,nlocal,newton_pair,f1x*delx,f1y*dely,f1z*delz,0.5*(f1x*dely+f1y*delx),0.5*(f1x*delz+f1z*delx),0.5*(f1y*delz+f1z*dely));
+      
+        if ( h_sep < 0.05) {
+	         v_tally_tensor(i,j,nlocal,newton_pair,0,0,0,(radi)/0.05*force->boltz*t_target*nx*ny,0,0);
+	          if (newton_pair || j < nlocal) {
+        	     v_tally_tensor(i,j,nlocal,newton_pair,0,0,0,(radj)/0.05*force->boltz*t_target*nx*ny,0,0);
+             }
+        }
+      
+      
+      
+      
+      
       }
     }
   }

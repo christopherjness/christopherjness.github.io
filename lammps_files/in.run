@@ -17,7 +17,7 @@ compute		str  all pressure NULL pair
 # SPECIFY THE OUTPUTS
 thermo_style	custom time c_str[1] c_str[2] c_str[3] c_str[4] c_str[5] c_str[6]
 thermo          10000
-dump            id all custom 10000 run.dump id x y z radius omegax omegay omegaz
+dump            id all custom 10000 run.dump id x y z radius vx vy vz
 log run.log
 
 # SPECIFY THE TIMESTEP, THE INTEGRATION SCHEME AND RUN

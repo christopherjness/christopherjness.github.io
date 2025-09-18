@@ -1,0 +1,40 @@
+# SETTINGS
+atom_style	sphere
+comm_modify	mode single vel yes
+neighbor 1 multi
+# READ THE PARTICLE CONFIGURATION
+read_data ./data.file
+
+# SPECIFY THE PARTICLE-PARTICLE INTERACTION
+pair_style hybrid/overlay granular lubricate/bmpoly 0.1 1 1 0.001 0.05 1 0 brownian/bmpoly 0.1 1 1 0.001 0.05 0.08482300164692443 100000 1 0  
+pair_coeff * * lubricate/bmpoly
+pair_coeff * * brownian/bmpoly
+pair_coeff 3 3 granular hooke 50000 0 tangential linear_history 35000 0 1
+pair_coeff 4 4 granular hooke 50000 0 tangential linear_history 35000 0 1
+pair_coeff 3 4 granular hooke 50000 0 tangential linear_history 35000 0 1
+pair_coeff 1 1 granular hooke 10000 0 tangential linear_history 7000 0 1
+pair_coeff 2 2 granular hooke 10000 0 tangential linear_history 7000 0 1
+pair_coeff 1 2 granular hooke 10000 0 tangential linear_history 7000 0 1
+
+pair_coeff 1 3 granular hooke 16667 0 tangential linear_history 11667 0 1
+pair_coeff 1 4 granular hooke 16667 0 tangential linear_history 11667 0 1
+
+pair_coeff 2 3 granular hooke 16667 0 tangential linear_history 11667 0 1
+pair_coeff 2 4 granular hooke 16667 0 tangential linear_history 11667 0 1
+
+
+
+
+# DO THE STRESS CALC
+
+compute		str  all pressure NULL pair
+
+# SPECIFY THE TIMESTEP, THE INTEGRATION SCHEME AND RUN
+timestep	0.0001
+fix		    1 all nve/sphere
+fix         2 all deform 1 xy erate 0.004500000000000001 remap v
+
+fix 4 all ave/time 1 22222 22222 c_str[1] c_str[2] c_str[3] c_str[4] c_str[5] c_str[6] file stress.av
+run 11111111
+
+
