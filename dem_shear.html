@@ -17,8 +17,8 @@
       padding: 24px 16px;
     }
     #canvas {
-      border: 1px solid #333;
-      background: #0d0d1a;
+      border: 1px solid #ccc;
+      background: #ffffff;
       display: block;
     }
     #controls {
@@ -101,9 +101,10 @@
     return d;
   }
 
-  function randomColor() {
-    const hue = Math.random() * 360;
-    return `hsl(${hue},65%,60%)`;
+  // gray shade from normalised size offset: small → light, large → dark
+  function grayFromR0(r0) {
+    const L = Math.round(78 - r0 * 32);   // r0=-1 → 110%→clamp→78%, r0=+1 → 46%
+    return `hsl(0,0%,${Math.max(20, Math.min(85, L))}%)`;
   }
 
   // ─── Initialise: place N=100 particles, compute L from phi ───────
@@ -136,7 +137,7 @@
         if (noOverlap(x, y, r)) { placed = true; break; }
       }
       if (!placed) { x = Math.random() * L; y = Math.random() * L; }
-      particles.push({ x, y, vx: 0, vy: 0, ax: 0, ay: 0, r, r0: r0s[i], color: randomColor() });
+      particles.push({ x, y, vx: 0, vy: 0, ax: 0, ay: 0, r, r0: r0s[i], color: grayFromR0(r0s[i]) });
     }
   }
 
@@ -237,8 +238,11 @@
     const SCALE = CANVAS_SIZE / L;
     ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
     // background grid
-    ctx.strokeStyle = '#1e2040';
+    ctx.strokeStyle = '#e8e8e8';
     ctx.lineWidth = 0.5;
     const nGrid = 10, gStep = CANVAS_SIZE / nGrid;
     for (let i = 0; i <= nGrid; i++) {
@@ -254,8 +258,26 @@
       ctx.arc(px, py, pr, 0, Math.PI * 2);
       ctx.fillStyle = p.color;
       ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.strokeStyle = 'rgba(0,0,0,0.7)';
       ctx.lineWidth = 0.8;
+      ctx.stroke();
+    }
+
+    // contact force lines drawn on top
+    for (const c of contacts) {
+      const pi = particles[c.i], pj = particles[c.j];
+      let dx = pj.x - pi.x;
+      let dy = pj.y - pi.y;
+      dy = pbc(dy);
+      dx = dx - Math.round(dy / L) * currentLeShift;
+      dx = pbc(dx);
+      const ax = pi.x * SCALE,        ay = CANVAS_SIZE - pi.y * SCALE;
+      const bx = (pi.x + dx) * SCALE, by = CANVAS_SIZE - (pi.y + dy) * SCALE;
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(bx, by);
+      ctx.strokeStyle = 'rgba(255,60,60,0.85)';
+      ctx.lineWidth = Math.max(0.5, Math.min(c.f * 0.3, 8));
       ctx.stroke();
     }
   }
