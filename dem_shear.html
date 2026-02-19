@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2D DEM Shear Simulation</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #1a1a2e;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px 16px;
+    }
+    #canvas {
+      border: 1px solid #333;
+      background: #0d0d1a;
+      display: block;
+    }
+    #controls {
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      width: 100%;
+      max-width: 500px;
+    }
+    .control-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .control-row label {
+      width: 180px;
+      font-size: 0.85rem;
+      color: #b0b0c0;
+      flex-shrink: 0;
+    }
+    .control-row input[type=range] {
+      flex: 1;
+      accent-color: #a0c4ff;
+    }
+    .control-row span {
+      width: 48px;
+      text-align: right;
+      font-size: 0.85rem;
+      color: #e0e0e0;
+    }
+  </style>
+</head>
+<body>
+<canvas id="canvas" width="500" height="500"></canvas>
+
+  <div id="controls">
+    <div class="control-row">
+      <label>Volume fraction φ</label>
+      <input type="range" id="phi-slider" min="0.10" max="0.75" step="0.01" value="0.40">
+      <span id="phi-val">0.40</span>
+    </div>
+    <div class="control-row">
+      <label>Polydispersity δ</label>
+      <input type="range" id="poly-slider" min="0.00" max="0.85" step="0.01" value="0.30">
+      <span id="poly-val">0.30</span>
+    </div>
+  </div>
+
+
+  <script>
+  // ─── Configuration ───────────────────────────────────────────────
+  const CANVAS_SIZE = 500;
+  const DT = 1e-4;
+  const STEPS_PER_FRAME = 20;
+  const N_PARTICLES = 100;
+  const R_MEAN = 0.032;       // mean particle radius (absolute units)
+  const MASS = 1.0;
+  const DRAG = 50.0;
+
+  // ─── State ───────────────────────────────────────────────────────
+  let particles = [];
+  let contacts = [];          // populated each force evaluation
+  let currentLeShift = 0;    // kept in sync with step() for rendering
+  let phi = 0.40;
+  let poly = 0.30;            // polydispersity: half-width / mean radius
+  let shearRate = 1.0;
+  let strain = 0;
+  let L = 1.0;   // box side length — computed from phi and radii
+
+  // ─── Canvas ──────────────────────────────────────────────────────
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // ─── Helpers ─────────────────────────────────────────────────────
+  function pbc(d) {
+    const half = L / 2;
+    while (d >  half) d -= L;
+    while (d < -half) d += L;
+    return d;
+  }
+
+  function randomColor() {
+    const hue = Math.random() * 360;
+    return `hsl(${hue},65%,60%)`;
+  }
+
+  // ─── Initialise: place N=100 particles, compute L from phi ───────
+  function noOverlap(x, y, r) {
+    for (const p of particles) {
+      const dx = pbc(x - p.x), dy = pbc(y - p.y);
+      if (Math.hypot(dx, dy) < r + p.r + 1e-4) return false;
+    }
+    return true;
+  }
+
+  function initParticles() {
+    strain = 0;
+
+    // r0 ∈ [−1, 1]: normalised size offset, fixed per particle for lifetime of sim
+    // actual radius = R_MEAN * (1 + r0 * poly)
+    const r0s = Array.from({ length: N_PARTICLES }, () => Math.random() * 2 - 1);
+    const radii = r0s.map(r0 => R_MEAN * (1 + r0 * poly));
+
+    const totalArea = radii.reduce((s, r) => s + Math.PI * r * r, 0);
+    L = Math.sqrt(totalArea / phi);
+
+    particles = [];
+    for (let i = 0; i < N_PARTICLES; i++) {
+      const r = radii[i];
+      let x, y, placed = false;
+      for (let attempt = 0; attempt < 500; attempt++) {
+        x = Math.random() * L;
+        y = Math.random() * L;
+        if (noOverlap(x, y, r)) { placed = true; break; }
+      }
+      if (!placed) { x = Math.random() * L; y = Math.random() * L; }
+      particles.push({ x, y, vx: 0, vy: 0, ax: 0, ay: 0, r, r0: r0s[i], color: randomColor() });
+    }
+  }
+
+  // ─── Rescale polydispersity (keeps positions, updates radii + L) ──
+  function rescalePoly(newPoly) {
+    for (const p of particles) p.r = R_MEAN * (1 + p.r0 * newPoly);
+    const totalArea = particles.reduce((s, p) => s + Math.PI * p.r * p.r, 0);
+    const newL = Math.sqrt(totalArea / phi);
+    const ratio = newL / L;
+    for (const p of particles) {
+      p.x = (p.x * ratio + newL) % newL;
+      p.y = (p.y * ratio + newL) % newL;
+      p.vx = 0; p.vy = 0; p.ax = 0; p.ay = 0;
+    }
+    L = newL;
+    strain = 0;
+  }
+
+  // ─── Rescale box when phi changes (preserves particle structure) ──
+  function rescaleBox(newPhi) {
+    const totalArea = particles.reduce((s, p) => s + Math.PI * p.r * p.r, 0);
+    const newL = Math.sqrt(totalArea / newPhi);
+    const ratio = newL / L;
+    for (const p of particles) {
+      p.x = (p.x * ratio + newL) % newL;
+      p.y = (p.y * ratio + newL) % newL;
+      p.vx = 0; p.vy = 0; p.ax = 0; p.ay = 0;
+    }
+    L = newL;
+    strain = 0;
+  }
+
+  // ─── Forces ──────────────────────────────────────────────────────
+  function computeForces(fx, fy, leShift) {
+    const n = particles.length;
+    contacts = [];
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        let dx = particles[j].x - particles[i].x;
+        let dy = particles[j].y - particles[i].y;
+        dy = pbc(dy);
+        dx = dx - Math.round(dy / L) * leShift;
+        dx = pbc(dx);
+        const dist = Math.hypot(dx, dy);
+        const sigma = particles[i].r + particles[j].r;
+        if (dist < sigma && dist > 1e-10) {
+          const f = 50000 * (sigma - dist);
+          const nx = dx / dist, ny = dy / dist;
+          fx[i] -= f * nx;  fy[i] -= f * ny;
+          fx[j] += f * nx;  fy[j] += f * ny;
+          contacts.push({ i, j, f });
+        }
+      }
+    }
+    for (let i = 0; i < n; i++) {
+      const p = particles[i];
+      fx[i] -= DRAG * (p.vx - shearRate * p.y);
+      fy[i] -= DRAG * p.vy;
+    }
+  }
+
+  // ─── Velocity-Verlet step ─────────────────────────────────────────
+  function step() {
+    const n = particles.length;
+    if (n === 0) return;
+
+    strain += shearRate * DT;
+    const leShift = (strain % 1) * L;
+    currentLeShift = leShift;
+    const dt2 = DT * DT;
+
+    for (let i = 0; i < n; i++) {
+      const p = particles[i];
+      p.x += p.vx * DT + 0.5 * p.ax * dt2;
+      p.y += p.vy * DT + 0.5 * p.ay * dt2;
+      if (p.y >= L) { p.y -= L; p.x -= leShift; p.vx -= shearRate * L; }
+      else if (p.y < 0) { p.y += L; p.x += leShift; p.vx += shearRate * L; }
+      p.x = ((p.x % L) + L) % L;
+    }
+
+    const fx = new Float64Array(n);
+    const fy = new Float64Array(n);
+    computeForces(fx, fy, leShift);
+
+    for (let i = 0; i < n; i++) {
+      const p = particles[i];
+      const ax_new = fx[i] / MASS;
+      const ay_new = fy[i] / MASS;
+      p.vx += 0.5 * (p.ax + ax_new) * DT;
+      p.vy += 0.5 * (p.ay + ay_new) * DT;
+      p.ax = ax_new;
+      p.ay = ay_new;
+    }
+  }
+
+  // ─── Rendering ────────────────────────────────────────────────────
+  function draw() {
+    const SCALE = CANVAS_SIZE / L;
+    ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+    // background grid
+    ctx.strokeStyle = '#1e2040';
+    ctx.lineWidth = 0.5;
+    const nGrid = 10, gStep = CANVAS_SIZE / nGrid;
+    for (let i = 0; i <= nGrid; i++) {
+      ctx.beginPath(); ctx.moveTo(i * gStep, 0); ctx.lineTo(i * gStep, CANVAS_SIZE); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i * gStep); ctx.lineTo(CANVAS_SIZE, i * gStep); ctx.stroke();
+    }
+
+    for (const p of particles) {
+      const px = p.x * SCALE;
+      const py = CANVAS_SIZE - p.y * SCALE;
+      const pr = p.r * SCALE;
+      ctx.beginPath();
+      ctx.arc(px, py, pr, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+    }
+  }
+
+  // ─── Animation loop ───────────────────────────────────────────────
+  function loop() {
+    for (let s = 0; s < STEPS_PER_FRAME; s++) step();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // ─── UI wiring ────────────────────────────────────────────────────
+  const phiSlider  = document.getElementById('phi-slider');
+  const phiVal     = document.getElementById('phi-val');
+  const polySlider = document.getElementById('poly-slider');
+  const polyVal    = document.getElementById('poly-val');
+
+  phiSlider.addEventListener('input', () => {
+    phi = parseFloat(phiSlider.value);
+    phiVal.textContent = phi.toFixed(2);
+    rescaleBox(phi);
+  });
+
+  polySlider.addEventListener('input', () => {
+    poly = parseFloat(polySlider.value);
+    polyVal.textContent = poly.toFixed(2);
+    rescalePoly(poly);
+  });
+
+  // ─── Start ────────────────────────────────────────────────────────
+  initParticles();
+  loop();
+  </script>
+</body>
+</html>
