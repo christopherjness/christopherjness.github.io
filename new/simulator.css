@@ -1,112 +1,183 @@
-* { box-sizing: border-box; margin: 0; padding: 0; }
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* SIMULATOR CSS — Clean systematic layout                                      */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Reset & Defaults ────────────────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  height: 100%;
+  background: linear-gradient(45deg, #d0d0d0 0%, #ffffff 40%);
+}
+
 body {
-  background: #ffffff;
+  background: transparent;
   color: #222222;
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-height: 100vh;
-  padding: 24px 16px;
+  padding: 24px 8px 0;
+  min-height: 100%;
 }
+
+/* ─── Main Layout ─────────────────────────────────────────────────────────── */
 #canvas-wrapper {
   display: flex;
   flex-direction: row;
-  gap: 12px;
-  align-items: flex-start;
+  gap: 32px;
+  align-items: center;
+  width: auto;
 }
+
+/* ─── Left Column: Animation ──────────────────────────────────────────────── */
 #left-column {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0;
+  width: 500px;
+  height: 500px;
+  flex-shrink: 0;
 }
+
 #canvas {
-  border: 1px solid #ccc;
+  width: 100%;
+  height: 100%;
+  border: 2px solid #999;
   background: #ffffff;
   display: block;
 }
+
+/* ─── Right Column: Controls & Plots ──────────────────────────────────────── */
+#right-column {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 280px;
+  flex-shrink: 0;
+}
+
+/* ─── Controls Section ────────────────────────────────────────────────────── */
+#controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.control-row label {
+  width: 80px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #555555;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.control-row input[type=range] {
+  flex: 1;
+  min-width: 0;
+  accent-color: #2a6fcc;
+}
+
+.control-row span {
+  width: 50px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: #333333;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ─── Plots Section ───────────────────────────────────────────────────────── */
 #plot-column {
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-#plotCanvas, #phiCanvas {
-  background: #ffffff;
-  display: block;
-}
-.plot-wrap {
-  position: relative;
-  display: inline-block;
-}
-#controls {
-  margin-top: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
   width: 100%;
-  max-width: 500px;
-}
-.control-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.control-row label {
-  width: 180px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  color: #555555;
-  flex-shrink: 0;
-}
-.control-row input[type=range] {
-  flex: 1;
-  accent-color: #2a6fcc;
-}
-.control-row span {
-  width: 95px;
-  text-align: right;
-  font-size: 0.8rem;
-  font-variant-numeric: tabular-nums;
-  color: #222222;
 }
 
-/* Mobile layout */
+#plotCanvas,
+#phiCanvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 180px;
+  background: #ffffff;
+}
+
+.plot-wrap {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+/* ─── Mobile Layout ───────────────────────────────────────────────────────── */
 @media (max-width: 700px) {
   body {
     padding: 12px 8px;
   }
+
   #canvas-wrapper {
     flex-direction: column;
+    gap: 24px;
     width: 100%;
   }
+
   #left-column {
-    width: 100%;
-  }
-  #canvas {
     width: 100%;
     height: auto;
   }
-  #controls {
-    max-width: 100%;
+
+  #canvas {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
   }
-  .control-row label {
-    width: 130px;
-  }
-  .control-row span {
-    width: 72px;
-  }
-  #plot-column {
-    flex-direction: row;
+
+  #right-column {
     width: 100%;
   }
+
+  #controls {
+    gap: 12px;
+  }
+
+  .control-row label {
+    width: auto;
+  }
+
+  .control-row span {
+    width: auto;
+  }
+
+  #plot-column {
+    flex-direction: row;
+    gap: 12px;
+  }
+
   #plot-column > * {
     flex: 1;
     min-width: 0;
   }
-  #plotCanvas, #phiCanvas {
-    width: 100%;
+
+  #plotCanvas,
+  #phiCanvas {
+    max-height: none;
     height: auto;
   }
 }

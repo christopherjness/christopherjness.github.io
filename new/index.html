@@ -9,46 +9,55 @@
 <body>
     <header class="hero">
         <div class="hero-content">
-            <h1>modelling moving particles.</h1>
-            <p>research lab at the University of Edinburgh.</p>
+            <h1>modelling moving particles</h1>
+            <p>research lab at the University of Edinburgh</p>
         </div>
     </header>
 
     <section id="expertise" class="expertise">
-        <h2>our modelling expertise</h2>
-        <p>We specialise in advanced computational models for physical systems, leveraging state-of-the-art algorithms and domain knowledge to produce accurate and efficient simulations.</p>
+        <h2>our expertise</h2>
+        <p>We build bespoke modelling tools designed to answer fundamental questions about the dynamics of particulate systems. specialise in advanced computational models for physical systems, leveraging state-of-the-art algorithms and domain knowledge to produce accurate and efficient simulations.</p>
         <div class="expertise-grid">
             <div class="expertise-item">
                 <h3>Suspension rheology</h3>
-                <p>Interactive shear flow modelling.</p>
-                <a href="shear_simulator.html" target="_blank" class="btn primary">Toy rheology simulator</a>
+                <p>Linking micromechanics to bulk flow <i>via</i> particle-based simulation.</p>
+                <a href="#" onclick="openSimulator('shear_simulator.html'); return false;" class="btn primary">rheology simulator</a>
             </div>
             <div class="expertise-item">
                 <h3>Colloidal gelation</h3>
-                <p>Description of the second area of expertise.</p>
-                <a href="gelation_simulator.html" target="_blank" class="btn primary">Toy gelation simulator</a>
+                <p>Description of the pertise.</p>
+                <a href="#" onclick="openSimulator('gelation_simulator.html'); return false;" class="btn primary">gelation simulator</a>
             </div>
             <div class="expertise-item">
                 <h3>Constitutive modelling</h3>
-                <p>Description of the third area of expertise.</p>
+                <p>Encoding microscopic details into continuum models for large-scale simulation.</p>
             </div>
             <div class="expertise-item">
-                <h3>Processes and applications</h3>
-                <p>Description of the fourth area of expertise.</p>
+                <h3>Applications</h3>
+                <p>Understanding the fundamentals of extrusion, milling, crystallisation and other industrial unit ops.</p>
             </div>
         </div>
     </section>
 
+    <div id="simulator-panel" class="simulator-panel" style="display: none;">
+        <div class="simulator-header">
+            <button class="close-btn" onclick="closeSimulator()">&times;</button>
+        </div>
+        <iframe id="simulator-frame" class="simulator-frame" frameborder="0"></iframe>
+    </div>
+
     <section id="collaborations" class="collaborations">
-        <h2>collaborations and partnerships</h2>
+        <h2>collaborations</h2>
         <p>Our work is strengthened through partnerships with industry leaders, academic institutions, and research consortia. Together we tackle complex challenges.</p>
         <ul class="institutions-list" id="institutions-list"></ul>
+        <a href="mailto:chris.ness@ed.ac.uk" class="join-cta">
+            Join us as a student or collaborator
+        </a>
     </section>
 
     <section id="team" class="team">
-        <h2>team</h2>
-        <p>Meet the multidisciplinary team behind our research.</p>
-        <div class="team-member">
+        <h2>group</h2>
+        <div class="team-member team-member-lead">
             <img src="photos/ChrisNess.webp" alt="Chris Ness" loading="lazy" decoding="async">
             <div class="member-bio">
                 <h3>Chris Ness</h3>
@@ -143,6 +152,32 @@
     </footer>
 
     <script>
+    // open simulator in panel
+    function openSimulator(url) {
+        const panel = document.getElementById('simulator-panel');
+        const frame = document.getElementById('simulator-frame');
+        frame.src = url;
+        panel.style.display = 'block';
+        
+        // set height based on which simulator
+        if (url.includes('shear')) {
+            frame.style.height = '546px';
+        } else if (url.includes('gelation')) {
+            frame.style.height = '546px';
+        }
+        
+        // scroll to panel
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // close simulator panel
+    function closeSimulator() {
+        const panel = document.getElementById('simulator-panel');
+        const frame = document.getElementById('simulator-frame');
+        panel.style.display = 'none';
+        frame.src = '';
+    }
+
     // simple BibTeX parser for basic fields
     function formatAuthors(authors) {
         // convert "Last, First Middle and ..." into "F. Last, ..."
@@ -210,7 +245,7 @@
                         const institutions = institutionPart.split(',').map(i => i.trim());
                         
                         for (const inst of institutions) {
-                            if (inst && inst !== 'N/A') {
+                            if (inst && inst !== 'N/A' && !inst.toLowerCase().includes('edinburgh')) {
                                 institutionCounts[inst] = (institutionCounts[inst] || 0) + 1;
                             }
                         }
@@ -292,7 +327,8 @@
 
                 // toggle functionality
                 toggleBtn.addEventListener('click', () => {
-                    if (listMore.style.display === 'none') {
+                    const isHidden = listMore.style.display === 'none' || listMore.style.display === '';
+                    if (isHidden) {
                         listMore.style.display = 'block';
                         toggleBtn.textContent = 'v';
                     } else {
@@ -305,7 +341,7 @@
             // after global list, build per-member lists
             populateMemberPubs(parsed);
         } catch (err) {
-            console.error('failed to load bib', err);
+            // Silently fail if bibliography cannot be loaded
         }
     }
 
