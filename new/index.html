@@ -132,7 +132,7 @@
     <section id="publications" class="publications">
         <h2>publications</h2>
         <ol id="pub-list" reversed></ol>
-        <button id="toggle-more-pubs">▼</button>
+        <button id="toggle-more-pubs">&gt;</button>
         <ol id="pub-list-more" reversed></ol>
     </section>
 
@@ -294,10 +294,10 @@
                 toggleBtn.addEventListener('click', () => {
                     if (listMore.style.display === 'none') {
                         listMore.style.display = 'block';
-                        toggleBtn.textContent = '▲';
+                        toggleBtn.textContent = 'v';
                     } else {
                         listMore.style.display = 'none';
-                        toggleBtn.textContent = '▼';
+                        toggleBtn.textContent = '>';
                     }
                 });
             }
