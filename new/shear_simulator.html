@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shear Simulator</title>
+  <link rel="stylesheet" href="simulator.css">
+</head>
+<body>
+<div id="canvas-wrapper">
+  <div id="left-column">
+    <canvas id="canvas" width="500" height="500"></canvas>
+    <div id="controls">
+      <div class="control-row">
+        <label>Area fraction</label>
+        <input type="range" id="phi-slider" min="0.40" max="0.90" step="0.01" value="0.65">
+        <span id="phi-val">0.65</span>
+      </div>
+      <div class="control-row">
+        <label>Polydispersity</label>
+        <input type="range" id="poly-slider" min="0.00" max="0.85" step="0.01" value="0.43">
+        <span id="poly-val">moderate</span>
+      </div>
+      <div class="control-row">
+        <label>Friction coefficient</label>
+        <input type="range" id="mu-slider" min="0" max="1" step="0.01" value="0.5">
+        <span id="mu-val">0.50</span>
+      </div>
+    </div>
+  </div>
+  <div id="plot-column">
+    <canvas id="plotCanvas" width="320" height="244"></canvas>
+    <div class="plot-wrap">
+      <canvas id="phiCanvas" width="320" height="244"></canvas>
+    </div>
+  </div>
+</div>
+
+
+  <script>
+  // ─── Configuration ───────────────────────────────────────────────
+  const CANVAS_SIZE = 500;
+  const N_PARTICLES = 200;
+  const R_MEAN = 1.0;         // mean particle radius (absolute units)
+  const RHO_P = 1.0;          // 2-D particle area density
+  const shearRate = 1.0;      // fixed shear rate γ̇
+
+  // ─── Viscosity & timestep (mutable — updated by sliders) ─────────
+  const eta0 = 100.0;                                    // solvent viscosity (St = 0.01, hard-coded)
+  // Stokes translational drag is per-particle: 6π·η₀·r (computed inline)
+  let dt    = 1e-4;                                      // timestep (adaptive)
+  let stepsPerFrame = 20;                                // steps per animation frame
+  // Pre-allocated force buffers — reused every step to avoid GC pressure
+  const _fx     = new Float64Array(N_PARTICLES);
+  const _fy     = new Float64Array(N_PARTICLES);
+  const _torque = new Float64Array(N_PARTICLES);
+
+  // ─── Plot dimensions ─────────────────────────────────────────────
+  const PLOT_W = 320, PLOT_H = 244;
+  const PLOT_PAD = { top: 30, right: 20, bottom: 50, left: 65 };
+
+  // ─── State ───────────────────────────────────────────────────────
+  let particles = [];
+  let contacts = [];          // populated each force evaluation
+  let currentLeShift = 0;    // kept in sync with step() for rendering
+  let phi = 0.65;
+  let poly = 0.43;            // polydispersity: half-width / mean radius
+  const stiffness = 2e6;  // k = γ̇²·ρ·a³/Γ²; Γ=0.001 (hardest) → k=2e6
+  const kt = stiffness * 2 / 7;  // tangential spring stiffness (Mindlin approximation)
+  let strain = 0;
+  let L = 1.0;   // box side length — computed from phi and radii
+  let stressHistory = [];    // { strain, stress } pairs for the strain plot
+  let phiHistory    = [];    // { phi, stress } — transient scatter dots, cleared by reset
+  let phiGroups     = new Map(); // running geometric-mean per (phi,poly,mu) — survives reset
+  const strainWindow = 5;    // width of the sliding plot window (hard-coded)
+  let mu = 0.5;              // friction coefficient
+  let contactMap = new Map(); // tangential spring state: (i*N_PARTICLES+j) → delta_t
+
+  // ─── Canvas ──────────────────────────────────────────────────────
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const plotCanvas = document.getElementById('plotCanvas');
+  const plotCtx = plotCanvas.getContext('2d');
+  const phiCanvas  = document.getElementById('phiCanvas');
+  const phiCtx     = phiCanvas.getContext('2d');
+
+  // ─── Helpers ─────────────────────────────────────────────────────
+  function pbc(d) {
+    const half = L / 2;
+    while (d >  half) d -= L;
+    while (d < -half) d += L;
+    return d;
+  }
+
+  // particle fill color: lightness encodes size (larger = darker gray)
+  function particleColor(p) {
+    const L = Math.max(20, Math.min(85, Math.round(78 - p.r0 * 32)));
+    return `hsl(0,0%,${L}%)`;
+  }
+
+  // ─── Initialise: place N particles, compute L from phi ───────────
+  function noOverlap(x, y, r) {
+    for (const p of particles) {
+      const dx = pbc(x - p.x), dy = pbc(y - p.y);
+      if (Math.hypot(dx, dy) < r + p.r + 1e-4) return false;
+    }
+    return true;
+  }
+
+  function initParticles() {
+    strain = 0;
+    stressHistory = [];
+    phiHistory    = [];
+    contactMap    = new Map();
+
+    // r0 ∈ [−1, 1]: normalised size offset, fixed per particle for lifetime of sim
+    // actual radius = R_MEAN * (1 + r0 * poly)
+    const r0s = Array.from({ length: N_PARTICLES }, () => Math.random() * 2 - 1);
+    const radii = r0s.map(r0 => R_MEAN * (1 + r0 * poly));
+
+    const totalArea = radii.reduce((s, r) => s + Math.PI * r * r, 0);
+    L = Math.sqrt(totalArea / phi);
+
+    particles = [];
+    for (let i = 0; i < N_PARTICLES; i++) {
+      const r = radii[i];
+      let x, y, placed = false;
+      for (let attempt = 0; attempt < 500; attempt++) {
+        x = Math.random() * L;
+        y = Math.random() * L;
+        if (noOverlap(x, y, r)) { placed = true; break; }
+      }
+      if (!placed) { x = Math.random() * L; y = Math.random() * L; }
+      const m = RHO_P * Math.PI * r * r;
+      particles.push({ x, y, vx: 0, vy: 0, ax: 0, ay: 0, omega: 0, alpha: 0, theta: 0,
+                        r, r0: r0s[i], mass: m, I: 0.5 * m * r * r });
+    }
+  }
+
+  // ─── Shared: rescale particle positions to a new box side length ──
+  function rescalePositions(newL) {
+    const ratio = newL / L;
+    for (const p of particles) {
+      p.x = (p.x * ratio + newL) % newL;
+      p.y = (p.y * ratio + newL) % newL;
+      p.vx = 0; p.vy = 0; p.ax = 0; p.ay = 0;
+      p.omega = 0; p.alpha = 0;
+    }
+    contactMap = new Map();
+    L = newL;
+  }
+
+  // ─── Rescale polydispersity (keeps positions, updates radii + L) ──
+  function rescalePoly(newPoly) {
+    for (const p of particles) {
+      p.r = R_MEAN * (1 + p.r0 * newPoly);
+      p.mass = RHO_P * Math.PI * p.r * p.r;
+      p.I = 0.5 * p.mass * p.r * p.r;
+    }
+    const totalArea = particles.reduce((s, p) => s + Math.PI * p.r * p.r, 0);
+    rescalePositions(Math.sqrt(totalArea / phi));
+  }
+
+  // ─── Rescale box when phi changes (preserves particle structure) ──
+  function rescaleBox(newPhi) {
+    const totalArea = particles.reduce((s, p) => s + Math.PI * p.r * p.r, 0);
+    rescalePositions(Math.sqrt(totalArea / newPhi));
+  }
+
+  // ─── Forces ──────────────────────────────────────────────────────
+  function computeForces(fx, fy, torque, leShift) {
+    const n = particles.length;
+    const newContactMap = new Map();
+    contacts = [];
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        let dx = particles[j].x - particles[i].x;
+        let dy = particles[j].y - particles[i].y;
+        const ky = Math.round(dy / L);
+        dy -= ky * L;
+        dx -= ky * leShift;
+        dx = pbc(dx);
+        const dist = Math.hypot(dx, dy);
+        const sigma = particles[i].r + particles[j].r;
+        if (dist < sigma && dist > 1e-10) {
+          const fn = stiffness * (sigma - dist);
+          const nx = dx / dist, ny = dy / dist;
+
+          // ── Normal force ──────────────────────────────────────────
+          fx[i] -= fn * nx;  fy[i] -= fn * ny;
+          fx[j] += fn * nx;  fy[j] += fn * ny;
+
+          // ── Tangential friction (Cundall-Strack spring-slider) ────
+          const tx = -ny, ty = nx;           // tangential unit vector
+          const pi = particles[i], pj = particles[j];
+          // relative surface velocity at contact (translation + rotation)
+          // ky ≠ 0: image is in a different LE frame → subtract ky·γ̇·L from vx_j
+          const vs = (pj.vx - pi.vx - ky * shearRate * L) * tx + (pj.vy - pi.vy) * ty
+                   - pi.omega * pi.r - pj.omega * pj.r;
+          const key = i * n + j;
+          let delta_t = (contactMap.has(key) ? contactMap.get(key) : 0) + vs * dt;
+          let ft = kt * delta_t;
+          const ft_max = mu * fn;
+          if (ft >  ft_max) { ft =  ft_max; delta_t =  ft_max / kt; }
+          if (ft < -ft_max) { ft = -ft_max; delta_t = -ft_max / kt; }
+          newContactMap.set(key, delta_t);
+          fx[i] += ft * tx;  fy[i] += ft * ty;
+          fx[j] -= ft * tx;  fy[j] -= ft * ty;
+          torque[i] += pi.r * ft;
+          torque[j] += pj.r * ft;
+          // ──────────────────────────────────────────────────────────
+
+          // store for virial shear-stress calculation and rendering
+          contacts.push({ i, j, fn, ft, nx, ny, dy });
+        }
+      }
+    }
+    contactMap = newContactMap;
+    for (let i = 0; i < n; i++) {
+      const p = particles[i];
+      const dragI = 6 * Math.PI * eta0 * p.r;
+      fx[i]      -= dragI * (p.vx - shearRate * p.y);
+      fy[i]      -= dragI * p.vy;
+      torque[i]  -= 8 * Math.PI * eta0 * p.r * p.r * p.r * (p.omega + shearRate / 2);  // Stokes rotational drag (fluid vorticity = −γ̇/2)
+    }
+  }
+
+  // ─── Relative viscosity  η/η₀ = 1 - τ / (γ̇ · η₀ · L²) ──────────
+  // τ = -(1/V) Σ (fn·nₓ + ft·nᵧ)·Δy  (virial, full contact force)
+  function computeShearStress() {
+    let tau = 0;
+    for (const c of contacts) tau += (c.fn * c.nx + c.ft * c.ny) * c.dy;
+    return 1 - tau / (L * L * shearRate * eta0);
+  }
+
+  // ─── Velocity-Verlet step ─────────────────────────────────────────
+  function step() {
+    const n = particles.length;
+    if (n === 0) return;
+
+    strain += shearRate * dt;
+    const leShift = (strain % 1) * L;
+    currentLeShift = leShift;
+    const dt2 = dt * dt;
+
+    for (let i = 0; i < n; i++) {
+      const p = particles[i];
+      p.x += p.vx * dt + 0.5 * p.ax * dt2;
+      p.y += p.vy * dt + 0.5 * p.ay * dt2;
+      p.theta += p.omega * dt + 0.5 * p.alpha * dt2;
+      if (p.y >= L) { p.y -= L; p.x -= leShift; p.vx -= shearRate * L; }
+      else if (p.y < 0) { p.y += L; p.x += leShift; p.vx += shearRate * L; }
+      p.x = ((p.x % L) + L) % L;
+    }
+
+    _fx.fill(0); _fy.fill(0); _torque.fill(0);
+    computeForces(_fx, _fy, _torque, leShift);
+
+    for (let i = 0; i < n; i++) {
+      const p = particles[i];
+      const ax_new    = _fx[i]     / p.mass;
+      const ay_new    = _fy[i]     / p.mass;
+      const alpha_new = _torque[i] / p.I;
+      p.vx   += 0.5 * (p.ax    + ax_new)    * dt;
+      p.vy   += 0.5 * (p.ay    + ay_new)    * dt;
+      p.omega += 0.5 * (p.alpha + alpha_new) * dt;
+      p.ax    = ax_new;
+      p.ay    = ay_new;
+      p.alpha = alpha_new;
+    }
+  }
+
+  // ─── Rendering ────────────────────────────────────────────────────
+  function draw() {
+    const SCALE = CANVAS_SIZE / L;
+    ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+    // background grid
+    ctx.strokeStyle = '#e8e8e8';
+    ctx.lineWidth = 0.5;
+    const nGrid = 10, gStep = CANVAS_SIZE / nGrid;
+    for (let i = 0; i <= nGrid; i++) {
+      ctx.beginPath(); ctx.moveTo(i * gStep, 0); ctx.lineTo(i * gStep, CANVAS_SIZE); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i * gStep); ctx.lineTo(CANVAS_SIZE, i * gStep); ctx.stroke();
+    }
+
+    // LE shift in canvas pixels, normalised to [0, CANVAS_SIZE)
+    const shiftPx = ((currentLeShift % L) + L) % L * SCALE;
+
+    for (const p of particles) {
+      const px = p.x * SCALE;
+      const py = CANVAS_SIZE - p.y * SCALE;
+      const pr = p.r * SCALE;
+
+      // Collect draw positions: main + y-boundary ghosts (with LE x-shift)
+      const draws = [[px, py]];
+      if (py - pr < 0)             draws.push([px - shiftPx, py + CANVAS_SIZE]);
+      if (py + pr > CANVAS_SIZE)   draws.push([px + shiftPx, py - CANVAS_SIZE]);
+
+      // For each position, also add x-boundary mirrors (after normalising x)
+      const allDraws = [];
+      for (const [gx, gy] of draws) {
+        const nx = ((gx % CANVAS_SIZE) + CANVAS_SIZE) % CANVAS_SIZE;
+        allDraws.push([nx, gy]);
+        if (nx - pr < 0)             allDraws.push([nx + CANVAS_SIZE, gy]);
+        if (nx + pr > CANVAS_SIZE)   allDraws.push([nx - CANVAS_SIZE, gy]);
+      }
+
+      const fill = particleColor(p);
+      const cosT = Math.cos(p.theta);
+      const sinT = Math.sin(p.theta);
+
+      for (const [gx, gy] of allDraws) {
+        ctx.beginPath();
+        ctx.arc(gx, gy, pr, 0, Math.PI * 2);
+        ctx.fillStyle = fill;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(gx - pr * cosT, gy + pr * sinT);
+        ctx.lineTo(gx + pr * cosT, gy - pr * sinT);
+        ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+        ctx.lineWidth = 1.0;
+        ctx.stroke();
+      }
+    }
+
+    // contact force lines drawn on top (width encodes magnitude)
+    if (contacts.length > 0) {
+      const meanF = contacts.reduce((s, c) => s + c.fn, 0) / contacts.length;
+      ctx.strokeStyle = 'hsla(0,100%,50%,0.9)';
+      for (const c of contacts) {
+        const pi = particles[c.i], pj = particles[c.j];
+        let dx = pj.x - pi.x;
+        let dy = pj.y - pi.y;
+        const ny = Math.round(dy / L);
+        dy -= ny * L;
+        dx -= ny * currentLeShift;
+        dx = pbc(dx);
+        ctx.beginPath();
+        ctx.moveTo(pi.x * SCALE,        CANVAS_SIZE - pi.y * SCALE);
+        ctx.lineTo((pi.x + dx) * SCALE, CANVAS_SIZE - (pi.y + dy) * SCALE);
+        ctx.lineWidth = Math.max(0.5, Math.min(c.fn / meanF * 2, 8));
+        ctx.stroke();
+      }
+    }
+  }
+
+  // ─── Mean-marker shape for φ–viscosity plot ──────────────────────
+  // circle=frictionless(<0.1), square=low(<0.4), diamond=moderate(<0.7), triangle=rough(≥0.7)
+  function muPath(ctx2d, cx, cy, muVal, s) {
+    ctx2d.beginPath();
+    if (muVal < 0.1) {
+      ctx2d.arc(cx, cy, s, 0, Math.PI * 2);
+    } else if (muVal < 0.4) {
+      ctx2d.rect(cx - s, cy - s, s * 2, s * 2);
+    } else if (muVal < 0.7) {
+      const d = s * 1.35;
+      ctx2d.moveTo(cx, cy - d); ctx2d.lineTo(cx + d, cy);
+      ctx2d.lineTo(cx, cy + d); ctx2d.lineTo(cx - d, cy);
+      ctx2d.closePath();
+    } else {
+      const h = s * 1.6, w = s * 1.4;
+      ctx2d.moveTo(cx, cy - h);
+      ctx2d.lineTo(cx + w, cy + h * 0.65);
+      ctx2d.lineTo(cx - w, cy + h * 0.65);
+      ctx2d.closePath();
+    }
+  }
+
+  // ─── Log-spaced tick generator ───────────────────────────────────
+  function logTicks(lo, hi) {
+    const ticks = [];
+    const dMin = Math.floor(Math.log10(lo));
+    const dMax = Math.ceil(Math.log10(hi));
+    for (let d = dMin; d <= dMax; d++) {
+      for (const m of [1, 2, 5]) {
+        const v = m * Math.pow(10, d);
+        if (v >= lo * 0.999 && v <= hi * 1.001) ticks.push(v);
+      }
+    }
+    return ticks;
+  }
+
+  // ─── Stress–Strain plot ───────────────────────────────────────────
+  function drawStressPlot() {
+    const PW = PLOT_W, PH = PLOT_H;
+    const pad = PLOT_PAD;
+    const areaX = pad.left, areaY = pad.top;
+    const areaW = PW - pad.left - pad.right;
+    const areaH = PH - pad.top - pad.bottom;
+
+    plotCtx.clearRect(0, 0, PW, PH);
+
+    // X domain: sliding window of the last 2 strain units
+    const xMax = strain;
+    const xMin = Math.max(0, strain - strainWindow);
+    const xRange = Math.max(xMax - xMin, 1e-9);
+
+    // Filter history to the current window (with a tiny look-behind for line continuity)
+    const inWindow = stressHistory.filter(d => d.strain >= xMin - 0.01);
+
+    // Y domain: log scale, floor at 1
+    let yMax = 2;
+    if (inWindow.length > 0) {
+      let hi = -Infinity;
+      for (const d of inWindow) { if (d.stress > hi) hi = d.stress; }
+      yMax = hi > 1.01 ? Math.pow(10, Math.log10(hi) + 0.1) : 2;
+    }
+    const yMaxLog = Math.log10(yMax);
+
+    // Coordinate transforms
+    const toCanvasX = x => areaX + (x - xMin) / xRange * areaW;
+    const toCanvasY = y => areaY + areaH - Math.log10(Math.max(y, 1)) / yMaxLog * areaH;
+
+    // Plot area background
+    plotCtx.fillStyle = '#f9f9f9';
+    plotCtx.fillRect(areaX, areaY, areaW, areaH);
+
+    // Horizontal grid at log-spaced ticks
+    const yTicks = logTicks(1, yMax);
+    plotCtx.strokeStyle = '#e0e0e0';
+    plotCtx.lineWidth = 0.5;
+    for (const tv of yTicks) {
+      const gy = toCanvasY(tv);
+      plotCtx.beginPath();
+      plotCtx.moveTo(areaX, gy);
+      plotCtx.lineTo(areaX + areaW, gy);
+      plotCtx.stroke();
+    }
+
+    // Vertical grid every 0.5 strain
+    const strainStep = 0.5;
+    for (let s = Math.ceil(xMin / strainStep) * strainStep; s <= xMax + 0.01; s += strainStep) {
+      const gx = toCanvasX(s);
+      if (gx >= areaX && gx <= areaX + areaW) {
+        plotCtx.beginPath();
+        plotCtx.moveTo(gx, areaY);
+        plotCtx.lineTo(gx, areaY + areaH);
+        plotCtx.stroke();
+      }
+    }
+
+    // Stress curve
+    if (inWindow.length > 1) {
+      plotCtx.beginPath();
+      plotCtx.strokeStyle = '#1a6fd4';
+      plotCtx.lineWidth = 1.5;
+      let first = true;
+      for (const d of inWindow) {
+        if (d.strain < xMin || d.stress < 1) { first = true; continue; }
+        const cx = toCanvasX(d.strain);
+        const cy = toCanvasY(d.stress);
+        if (first) { plotCtx.moveTo(cx, cy); first = false; }
+        else plotCtx.lineTo(cx, cy);
+      }
+      plotCtx.stroke();
+    }
+
+    // Axes border
+    plotCtx.strokeStyle = '#555';
+    plotCtx.lineWidth = 1.5;
+    plotCtx.strokeRect(areaX, areaY, areaW, areaH);
+
+    // X-axis tick labels
+    plotCtx.fillStyle = '#555';
+    plotCtx.font = '11px system-ui, -apple-system, sans-serif';
+    plotCtx.textAlign = 'center';
+    plotCtx.textBaseline = 'top';
+    for (let i = 0; i <= 3; i++) {
+      const s = xMin + i * xRange / 3;
+      const tx = toCanvasX(s);
+      plotCtx.fillText(s.toFixed(1), tx, areaY + areaH + 5);
+    }
+
+    // Y-axis tick labels at log-spaced values
+    plotCtx.textAlign = 'right';
+    plotCtx.textBaseline = 'middle';
+    for (const tv of yTicks) {
+      plotCtx.fillText(tv < 10 ? tv.toFixed(1) : tv.toFixed(0), areaX - 5, toCanvasY(tv));
+    }
+
+    // Axis labels
+    plotCtx.fillStyle = '#333';
+    plotCtx.font = '500 12px system-ui, -apple-system, sans-serif';
+    plotCtx.textAlign = 'center';
+    plotCtx.textBaseline = 'bottom';
+    plotCtx.fillText('Strain', areaX + areaW / 2, PH - 2);
+
+    plotCtx.save();
+    plotCtx.translate(13, areaY + areaH / 2);
+    plotCtx.rotate(-Math.PI / 2);
+    plotCtx.textBaseline = 'top';
+    plotCtx.fillText('Viscosity', 0, 0);
+    plotCtx.restore();
+  }
+
+  // ─── Viscosity–φ scatter plot ─────────────────────────────────────
+  function drawPhiPlot() {
+    const PW = PLOT_W, PH = PLOT_H;
+    const pad = PLOT_PAD;
+    const areaX = pad.left, areaY = pad.top;
+    const areaW = PW - pad.left - pad.right;
+    const areaH = PH - pad.top - pad.bottom;
+
+    phiCtx.clearRect(0, 0, PW, PH);
+
+    // X domain: 0.05 beyond slider limits
+    const xMin = 0.35, xMax = 0.95, xRange = xMax - xMin;
+
+    // Y domain: fixed log scale 1–700
+    const yMax = 700;
+    const yMaxLog = Math.log10(yMax);
+
+    const toX = x => areaX + (x - xMin) / xRange * areaW;
+    const toY = y => areaY + areaH - Math.log10(Math.max(y, 1)) / yMaxLog * areaH;
+
+    // Plot background
+    phiCtx.fillStyle = '#f9f9f9';
+    phiCtx.fillRect(areaX, areaY, areaW, areaH);
+
+    // Horizontal grid at log-spaced ticks
+    const yTicks = logTicks(1, yMax);
+    phiCtx.strokeStyle = '#e0e0e0';
+    phiCtx.lineWidth = 0.5;
+    for (const tv of yTicks) {
+      const gy = toY(tv);
+      phiCtx.beginPath(); phiCtx.moveTo(areaX, gy); phiCtx.lineTo(areaX + areaW, gy); phiCtx.stroke();
+    }
+
+    // Vertical grid every 0.1 in φ
+    for (let x = 0.4; x <= 0.91; x += 0.1) {
+      const gx = toX(x);
+      phiCtx.beginPath(); phiCtx.moveTo(gx, areaY); phiCtx.lineTo(gx, areaY + areaH); phiCtx.stroke();
+    }
+
+    // Scatter dots — hue encodes polydispersity (blue δ=0 → red δ=0.85)
+    for (const d of phiHistory) {
+      if (d.stress < 1) continue;
+      const cx = toX(d.phi);
+      const cy = toY(d.stress);
+      if (cy < areaY || cy > areaY + areaH) continue;
+      const hue = 220 * (1 - d.poly / 0.85);
+      phiCtx.fillStyle = `hsla(${hue},80%,45%,0.4)`;
+      phiCtx.beginPath();
+      phiCtx.arc(cx, cy, 2, 0, Math.PI * 2);
+      phiCtx.fill();
+    }
+
+    // Time-averaged markers per parameter set (phi, poly, mu)
+    for (const g of phiGroups.values()) {
+      const meanStress = Math.pow(10, g.logSum / g.n);
+      const cx = toX(g.phi);
+      const cy = toY(meanStress);
+      if (cy < areaY || cy > areaY + areaH) continue;
+      const hue = 220 * (1 - g.poly / 0.85);
+      phiCtx.fillStyle = `hsl(${hue},85%,38%)`;
+      phiCtx.strokeStyle = 'rgba(0,0,0,0.9)';
+      phiCtx.lineWidth = 1.3;
+      muPath(phiCtx, cx, cy, g.mu, 5);
+      phiCtx.fill();
+      phiCtx.stroke();
+    }
+
+    // Current-φ vertical marker
+    phiCtx.strokeStyle = 'rgba(200,60,60,0.7)';
+    phiCtx.lineWidth = 1.5;
+    const curX = toX(phi);
+    phiCtx.beginPath(); phiCtx.moveTo(curX, areaY); phiCtx.lineTo(curX, areaY + areaH); phiCtx.stroke();
+
+    // Axes border
+    phiCtx.strokeStyle = '#555';
+    phiCtx.lineWidth = 1.5;
+    phiCtx.strokeRect(areaX, areaY, areaW, areaH);
+
+    // X-axis tick labels
+    phiCtx.fillStyle = '#555';
+    phiCtx.font = '11px system-ui, -apple-system, sans-serif';
+    phiCtx.textAlign = 'center';
+    phiCtx.textBaseline = 'top';
+    for (let x = 0.4; x <= 0.91; x += 0.1) {
+      phiCtx.fillText(x.toFixed(2), toX(x), areaY + areaH + 5);
+    }
+
+    // Y-axis tick labels at log-spaced values
+    phiCtx.textAlign = 'right';
+    phiCtx.textBaseline = 'middle';
+    for (const tv of yTicks) {
+      phiCtx.fillText(tv < 10 ? tv.toFixed(1) : tv.toFixed(0), areaX - 5, toY(tv));
+    }
+
+    // Axis labels
+    phiCtx.fillStyle = '#333';
+    phiCtx.font = '500 12px system-ui, -apple-system, sans-serif';
+    phiCtx.textAlign = 'center';
+    phiCtx.textBaseline = 'bottom';
+    phiCtx.fillText('Area fraction', areaX + areaW / 2, PH - 2);
+
+    phiCtx.save();
+    phiCtx.translate(13, areaY + areaH / 2);
+    phiCtx.rotate(-Math.PI / 2);
+    phiCtx.textBaseline = 'top';
+    phiCtx.fillText('Average viscosity', 0, 0);
+    phiCtx.restore();
+  }
+
+  // ─── Animation loop ───────────────────────────────────────────────
+  function loop() {
+    for (let s = 0; s < stepsPerFrame; s++) step();
+
+    // Record virial shear stress at current strain; prune entries outside visible window
+    const eta = computeShearStress();
+    stressHistory.push({ strain, stress: eta });
+    while (stressHistory.length > 0 && stressHistory[0].strain < strain - strainWindow - 0.5)
+      stressHistory.shift();
+    phiHistory.push({ phi, stress: eta, poly, mu });
+    if (eta >= 1) {
+      const gkey = `${phi.toFixed(2)}_${poly.toFixed(2)}_${mu.toFixed(2)}`;
+      if (!phiGroups.has(gkey)) phiGroups.set(gkey, { phi, poly, mu, logSum: 0, n: 0 });
+      const g = phiGroups.get(gkey);
+      g.logSum += Math.log10(eta);
+      g.n++;
+    }
+
+    draw();
+    drawStressPlot();
+    drawPhiPlot();
+    requestAnimationFrame(loop);
+  }
+
+  // ─── Adaptive timestep ────────────────────────────────────────────
+  // DT must resolve both the contact spring oscillation and Stokes drag relaxation.
+  // τ_contact = π·√(m_eff/k);  τ_drag_rot = ρ_p·r_min/(16·η₀)  (smallest particle, rotation)
+  function updateTimestep() {
+    const rMin = R_MEAN * Math.max(0.1, 1 - poly);
+    const m_eff = RHO_P * Math.PI * rMin * rMin / 2;
+    const tau_contact  = Math.PI * Math.sqrt(m_eff / stiffness);
+    const tau_drag_rot = RHO_P * rMin / (16 * eta0);
+    // Spring oscillations need tighter resolution than drag relaxation
+    dt = Math.min(tau_contact / 20, tau_drag_rot / 8);
+    // keep ~0.002 strain per frame; cap to prevent frames taking too long
+    stepsPerFrame = Math.min(100, Math.max(3, Math.round(0.002 / (shearRate * dt))));
+  }
+
+  // ─── Slider descriptor functions ─────────────────────────────────
+  function polyDesc(v)  { return v < 0.05 ? 'monodisperse' : v < 0.35 ? 'low poly' : v < 0.60 ? 'moderate' : 'polydisperse'; }
+
+  // ─── UI wiring ────────────────────────────────────────────────────
+  const phiSlider  = document.getElementById('phi-slider');
+  const phiVal     = document.getElementById('phi-val');
+  const polySlider = document.getElementById('poly-slider');
+  const polyVal    = document.getElementById('poly-val');
+
+  phiSlider.addEventListener('input', () => {
+    phi = parseFloat(phiSlider.value);
+    phiVal.textContent = phi.toFixed(2);
+    rescaleBox(phi);
+  });
+
+  polySlider.addEventListener('input', () => {
+    poly = parseFloat(polySlider.value);
+    polyVal.textContent = polyDesc(poly);
+    rescalePoly(poly);
+    updateTimestep();
+  });
+
+
+  const muSlider = document.getElementById('mu-slider');
+  const muVal    = document.getElementById('mu-val');
+  muSlider.addEventListener('input', () => {
+    mu = parseFloat(muSlider.value);
+    muVal.textContent = mu.toFixed(2);
+  });
+
+
+  // ─── Start ────────────────────────────────────────────────────────
+  initParticles();
+  updateTimestep();   // sets dt, stepsPerFrame, and ip-dt display
+  loop();
+  </script>
+</body>
+</html>

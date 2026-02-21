@@ -1,0 +1,267 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* basic reset */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background-color: #fafafa;
+}
+
+.hero {
+    background: #2a2a2a;
+    color: white;
+    padding: 6rem 2rem 8rem;
+    position: relative;
+}
+
+.hero-content {
+    text-align: center;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.hero-content h1 {
+    font-size: 3.5rem;
+    margin-bottom: 1rem;
+    font-weight: 700;
+    max-width: 800px;
+}
+
+.hero-content p {
+    font-size: 1.25rem;
+    margin-bottom: 0;
+    max-width: 700px;
+}
+
+.btn {
+    display: inline-block;
+    padding: 0.75rem 1.75rem;
+    border-radius: 999px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: background 0.2s, color 0.2s;
+}
+
+.primary {
+    background-color: #e0e0e0;
+    color: #333;
+}
+
+.secondary {
+    background-color: transparent;
+    color: white;
+    border: 2px solid white;
+}
+
+section {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 3rem 2rem;
+}
+
+/* alternate backgrounds to distinguish sections */
+.expertise {
+    background-color: #e8eaf0;
+}
+
+/* grid for expertise areas */
+.expertise-grid {
+    display: grid;
+    /* limit to two columns maximum */
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    margin-top: 2rem;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* ensure one column on narrow screens */
+@media (max-width: 600px) {
+    .expertise-grid {
+        grid-template-columns: 1fr;
+    }
+}
+.expertise-item {
+    background: #fff;
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    text-align: center;
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.expertise-item .btn {
+    margin-top: auto;
+}
+.expertise-item h3 {
+    margin-bottom: 0.75rem;
+    font-size: 1.25rem;
+}
+.expertise-item p {
+    margin-bottom: 1rem;
+}
+
+/* publication list styling */
+#pub-list {
+    /* remove default indent so numbers line up with heading */
+    margin-left: 0;
+    padding-left: 0;
+    list-style-position: inside;
+}
+#pub-list li {
+    margin-bottom: 1rem;
+    line-height: 1.4;
+    /* hanging indent: first line flush with number, subsequent lines indented */
+    padding-left: 1.5em;
+    text-indent: -1.5em;
+}
+
+/* additional publications list - same styling as main list */
+#pub-list-more {
+    margin-left: 0;
+    padding-left: 0;
+    list-style-position: inside;
+    margin-top: 1rem;
+    display: none;
+}
+#pub-list-more li {
+    margin-bottom: 1rem;
+    line-height: 1.4;
+    padding-left: 1.5em;
+    text-indent: -1.5em;
+}
+
+/* toggle button for publications - subtle arrow */
+#toggle-more-pubs {
+    display: none;
+    margin: 1rem 0 0 auto;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    font-size: 1rem;
+    color: #999;
+    padding: 0.25rem 0.5rem;
+    transition: color 0.2s, transform 0.2s;
+}
+#toggle-more-pubs:hover {
+    color: #333;
+    transform: scale(1.2);
+}
+
+.collaborations {
+    background-color: #fff;
+}
+
+/* institutions list in collaborations section */
+.institutions-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 0.5rem 1.5rem;
+    margin-top: 2rem;
+    padding-left: 0;
+    list-style: none;
+}
+.institutions-list li {
+    padding: 0;
+    font-size: 0.95rem;
+    color: #555;
+}
+.institutions-list li::before {
+    content: "•";
+    color: #999;
+    font-weight: bold;
+    display: inline-block;
+    width: 1em;
+    margin-right: 0.25em;
+}
+
+.team {
+    background-color: #e8eaf0;
+}
+
+/* team member panels */
+.team-member {
+    display: flex;
+    width: 100%;
+    background: #fff;
+    margin: 1rem 0;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    align-items: center;
+}
+.team-member img {
+    width: 120px;
+    object-fit: cover;
+    border-radius: 5%;
+    margin-right: 1.5rem;
+}
+
+/* use the same styles as the main publication list so member panels look identical */
+.member-pubs {
+    margin-top: 0.5rem;
+    margin-left: 1.5rem;
+    padding-left: 0;
+    list-style-position: inside;
+}
+.member-pubs li {
+    margin-bottom: 1rem;
+    line-height: 1.4;
+    padding-left: 1.5em;
+    text-indent: -1.5em;
+}
+.member-bio h3 {
+    margin-bottom: 0.5rem;
+    font-size: 1.25rem;
+}
+.member-bio p {
+    margin: 0;
+}
+.publications {
+    background-color: #fff;
+}
+
+h2 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+h3 {
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.footer {
+    background-color: #333;
+    border-top: none;
+    padding: 2rem;
+    text-align: center;
+    color: #fff;
+}
+
+.footer-links {
+    margin: 1rem 0;
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.footer-links a {
+    text-decoration: none;
+    color: #fff;
+}

@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gelation Simulator</title>
+  <link rel="stylesheet" href="simulator.css">
+</head>
+<body>
+<div id="canvas-wrapper">
+  <div id="left-column">
+    <canvas id="canvas" width="500" height="500"></canvas>
+    <div id="controls">
+      <div class="control-row">
+        <label>Area fraction</label>
+        <input type="range" id="phi-slider" min="0.10" max="0.40" step="0.01" value="0.25">
+        <span id="phi-val">0.25</span>
+      </div>
+      <div class="control-row">
+        <label>Attraction ratio U0/kBT</label>
+        <input type="range" id="gamma-slider" min="0" max="50" step="0.5" value="25">
+        <span id="gamma-val">25.0</span>
+      </div>
+    </div>
+  </div>
+  <div id="plot-column">
+    <canvas id="plotCanvas" width="320" height="244"></canvas>
+    <div class="plot-wrap">
+      <canvas id="phiCanvas" width="320" height="244"></canvas>
+    </div>
+  </div>
+</div>
+
+
+  <script>
+  // ─── Configuration ───────────────────────────────────────────────
+  const CANVAS_SIZE = 500;
+  const N_PARTICLES = 200;
+  const R_MEAN = 1.0;         // mean particle radius (absolute units)
+  const RHO_P = 1.0;          // 2-D particle area density
+
+  // ─── Timestep (mutable — updated by sliders) ────────────────────
+  const eta0 = 100.0;                                    // solvent viscosity (St = 0.01, hard-coded)
+  const kBT = 1000.0;                                    // thermal energy scale (fixed)
+  const tauD = 6 * Math.PI * eta0 * Math.pow(R_MEAN, 3) / kBT; // diffusion time R^2/D with D=kBT/(6πηR)
+  // Stokes translational drag is per-particle: 6π·η₀·r (computed inline)
+  let dt    = 1e-4;                                      // timestep (adaptive)
+  let stepsPerFrame = 20;                                // steps per animation frame
+  // Pre-allocated force buffers — reused every step to avoid GC pressure
+  const _fx     = new Float64Array(N_PARTICLES);
+  const _fy     = new Float64Array(N_PARTICLES);
+  const _torque = new Float64Array(N_PARTICLES);
+
+  // ─── Plot dimensions ─────────────────────────────────────────────
+  const PLOT_W = 320, PLOT_H = 244;
+  const PLOT_PAD = { top: 30, right: 20, bottom: 50, left: 65 };
+
+  // ─── State ───────────────────────────────────────────────────────
+  let particles = [];
+  let phi = 0.25;
+  const poly = 0.43;          // polydispersity: half-width / mean radius
+  const stiffness = 2e6;  // k = γ̇²·ρ·a³/Γ²; Γ=0.001 (hardest) → k=2e6
+  const kt = stiffness * 2 / 7;  // tangential spring stiffness (Mindlin approximation)
+  let simTime = 0;
+  let L = 1.0;   // box side length — computed from phi and radii
+  let clusterHistory = [];   // { t, max } transient max cluster size
+  let phiHistory    = [];    // { phi, max, gamma } transient scatter dots
+  let phiGroups     = new Map(); // running mean per (phi,gamma)
+  const timeWindow = 5;      // width of the sliding plot window in t/t_D units
+  const mu = 0.5;            // friction coefficient
+  let attrStrength = 0.5;    // attractive force scale (relative to stiffness)
+  let gamma = 25.0;          // U0/kBT dimensionless attraction strength
+  const attrRange = 0.25;    // attraction range in units of mean radius
+  let contactMap = new Map(); // tangential spring state: (i*N_PARTICLES+j) → delta_t
+
+  // ─── Canvas ──────────────────────────────────────────────────────
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const plotCanvas = document.getElementById('plotCanvas');
+  const plotCtx = plotCanvas.getContext('2d');
+  const phiCanvas  = document.getElementById('phiCanvas');
+  const phiCtx     = phiCanvas.getContext('2d');
+
+  // ─── Helpers ─────────────────────────────────────────────────────
+  function pbc(d) {
+    const half = L / 2;
+    while (d >  half) d -= L;
+    while (d < -half) d += L;
+    return d;
+  }
+
+  // Standard normal RNG using Box-Muller (cached for efficiency)
+  let _randnSpare = null;
+  function randn() {
+    if (_randnSpare !== null) {
+      const v = _randnSpare;
+      _randnSpare = null;
+      return v;
+    }
+    let u = 0, v = 0, s = 0;
+    while (s === 0 || s >= 1) {
+      u = Math.random() * 2 - 1;
+      v = Math.random() * 2 - 1;
+      s = u * u + v * v;
+    }
+    const mul = Math.sqrt(-2 * Math.log(s) / s);
+    _randnSpare = v * mul;
+    return u * mul;
+  }
+
+  // particle fill color: lightness encodes size (larger = darker gray)
+  function particleColor(p) {
+    const L = Math.max(20, Math.min(85, Math.round(78 - p.r0 * 32)));
+    return `hsl(0,0%,${L}%)`;
+  }
+
+  // ─── Initialise: place N particles, compute L from phi ───────────
+  function noOverlap(x, y, r) {
+    for (const p of particles) {
+      const dx = pbc(x - p.x), dy = pbc(y - p.y);
+      if (Math.hypot(dx, dy) < r + p.r + 1e-4) return false;
+    }
+    return true;
+  }
+
+  function initParticles() {
+    simTime = 0;
+    clusterHistory = [];
+    phiHistory    = [];
+    contactMap    = new Map();
+
+    // r0 ∈ [−1, 1]: normalised size offset, fixed per particle for lifetime of sim
+    // actual radius = R_MEAN * (1 + r0 * poly)
+    const r0s = Array.from({ length: N_PARTICLES }, () => Math.random() * 2 - 1);
+    const radii = r0s.map(r0 => R_MEAN * (1 + r0 * poly));
+
+    const totalArea = radii.reduce((s, r) => s + Math.PI * r * r, 0);
+    L = Math.sqrt(totalArea / phi);
+
+    particles = [];
+    for (let i = 0; i < N_PARTICLES; i++) {
+      const r = radii[i];
+      let x, y, placed = false;
+      for (let attempt = 0; attempt < 500; attempt++) {
+        x = Math.random() * L;
+        y = Math.random() * L;
+        if (noOverlap(x, y, r)) { placed = true; break; }
+      }
+      if (!placed) { x = Math.random() * L; y = Math.random() * L; }
+      particles.push({ x, y, vx: 0, vy: 0, omega: 0, theta: 0, r, r0: r0s[i] });
+    }
+  }
+
+  // ─── Shared: rescale particle positions to a new box side length ──
+  function rescalePositions(newL) {
+    const ratio = newL / L;
+    for (const p of particles) {
+      p.x = (p.x * ratio + newL) % newL;
+      p.y = (p.y * ratio + newL) % newL;
+      p.vx = 0; p.vy = 0;
+      p.omega = 0;
+    }
+    contactMap = new Map();
+    L = newL;
+  }
+
+  // ─── Rescale box when phi changes (preserves particle structure) ──
+  function rescaleBox(newPhi) {
+    const totalArea = particles.reduce((s, p) => s + Math.PI * p.r * p.r, 0);
+    rescalePositions(Math.sqrt(totalArea / newPhi));
+  }
+
+  // ─── Forces ──────────────────────────────────────────────────────
+  function computeForces(fx, fy, torque) {
+    const n = particles.length;
+    const newContactMap = new Map();
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const dx = pbc(particles[j].x - particles[i].x);
+        const dy = pbc(particles[j].y - particles[i].y);
+        const dist = Math.hypot(dx, dy);
+        const sigma = particles[i].r + particles[j].r;
+        if (dist > 1e-10 && dist < sigma + attrRange * R_MEAN) {
+          const nx = dx / dist, ny = dy / dist;
+          let fn = 0;
+          let ft = 0;
+
+          if (dist < sigma) {
+            fn = stiffness * (sigma - dist);
+
+            // ── Tangential friction (Cundall-Strack spring-slider) ────
+            const tx = -ny, ty = nx;           // tangential unit vector
+            const pi = particles[i], pj = particles[j];
+            // relative surface velocity at contact (translation + rotation)
+            const vs = (pj.vx - pi.vx) * tx + (pj.vy - pi.vy) * ty
+                     - pi.omega * pi.r - pj.omega * pj.r;
+            const key = i * n + j;
+            let delta_t = (contactMap.has(key) ? contactMap.get(key) : 0) + vs * dt;
+            ft = kt * delta_t;
+            const ft_max = mu * fn;
+            if (ft >  ft_max) { ft =  ft_max; delta_t =  ft_max / kt; }
+            if (ft < -ft_max) { ft = -ft_max; delta_t = -ft_max / kt; }
+            newContactMap.set(key, delta_t);
+            fx[i] += ft * tx;  fy[i] += ft * ty;
+            fx[j] -= ft * tx;  fy[j] -= ft * ty;
+            torque[i] += pi.r * ft;
+            torque[j] += pj.r * ft;
+            // ──────────────────────────────────────────────────────────
+          } else {
+            const sep = dist - sigma;
+            fn = -attrStrength * stiffness * (1 - sep / (attrRange * R_MEAN));
+          }
+
+          // ── Normal force (repulsive or attractive) ────────────────
+          fx[i] -= fn * nx;  fy[i] -= fn * ny;
+          fx[j] += fn * nx;  fy[j] += fn * ny;
+
+        }
+      }
+    }
+    contactMap = newContactMap;
+    // Drag and Brownian motion are applied in the overdamped update step.
+  }
+
+  function computeMaxCluster() {
+    const n = particles.length;
+    if (n === 0) return 0;
+    const parent = new Int32Array(n);
+    const size = new Int32Array(n);
+    for (let i = 0; i < n; i++) { parent[i] = i; size[i] = 1; }
+    const find = (x) => {
+      let p = x;
+      while (parent[p] !== p) p = parent[p];
+      while (parent[x] !== x) { const nx = parent[x]; parent[x] = p; x = nx; }
+      return p;
+    };
+    const unite = (a, b) => {
+      let ra = find(a), rb = find(b);
+      if (ra === rb) return;
+      if (size[ra] < size[rb]) { const t = ra; ra = rb; rb = t; }
+      parent[rb] = ra;
+      size[ra] += size[rb];
+    };
+
+    const cutoff = attrRange * R_MEAN;
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const dx = pbc(particles[j].x - particles[i].x);
+        const dy = pbc(particles[j].y - particles[i].y);
+        const dist = Math.hypot(dx, dy);
+        const sigma = particles[i].r + particles[j].r;
+        if (dist < sigma + cutoff) unite(i, j);
+      }
+    }
+
+    let maxSize = 1;
+    for (let i = 0; i < n; i++) {
+      if (parent[i] === i && size[i] > maxSize) maxSize = size[i];
+    }
+    return maxSize;
+  }
+
+  // ─── Overdamped Brownian dynamics step ────────────────────────────
+  function step() {
+    const n = particles.length;
+    if (n === 0) return;
+
+    _fx.fill(0); _fy.fill(0); _torque.fill(0);
+    computeForces(_fx, _fy, _torque);
+
+    for (let i = 0; i < n; i++) {
+      const p = particles[i];
+      const dragI = 6 * Math.PI * eta0 * p.r;
+      const dragRot = 8 * Math.PI * eta0 * p.r * p.r * p.r;
+      const vxDet = _fx[i] / dragI;
+      const vyDet = _fy[i] / dragI;
+      const omegaDet = _torque[i] / dragRot;
+
+      const sigmaT = Math.sqrt(2 * kBT * dt / dragI);
+      const sigmaR = Math.sqrt(2 * kBT * dt / dragRot);
+      const dx = sigmaT * randn();
+      const dy = sigmaT * randn();
+      const dtheta = sigmaR * randn();
+
+      p.x += vxDet * dt + dx;
+      p.y += vyDet * dt + dy;
+      p.theta += omegaDet * dt + dtheta;
+
+      p.vx = vxDet + dx / dt;
+      p.vy = vyDet + dy / dt;
+      p.omega = omegaDet + dtheta / dt;
+
+      p.x = ((p.x % L) + L) % L;
+      p.y = ((p.y % L) + L) % L;
+    }
+    simTime += dt;
+  }
+
+  // ─── Rendering ────────────────────────────────────────────────────
+  function draw() {
+    const SCALE = CANVAS_SIZE / L;
+    ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+    // background grid
+    ctx.strokeStyle = '#e8e8e8';
+    ctx.lineWidth = 0.5;
+    const nGrid = 10, gStep = CANVAS_SIZE / nGrid;
+    for (let i = 0; i <= nGrid; i++) {
+      ctx.beginPath(); ctx.moveTo(i * gStep, 0); ctx.lineTo(i * gStep, CANVAS_SIZE); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i * gStep); ctx.lineTo(CANVAS_SIZE, i * gStep); ctx.stroke();
+    }
+
+    for (const p of particles) {
+      const px = p.x * SCALE;
+      const py = CANVAS_SIZE - p.y * SCALE;
+      const pr = p.r * SCALE;
+
+      // Collect draw positions: main + y-boundary ghosts
+      const draws = [[px, py]];
+      if (py - pr < 0)             draws.push([px, py + CANVAS_SIZE]);
+      if (py + pr > CANVAS_SIZE)   draws.push([px, py - CANVAS_SIZE]);
+
+      // For each position, also add x-boundary mirrors (after normalising x)
+      const allDraws = [];
+      for (const [gx, gy] of draws) {
+        const nx = ((gx % CANVAS_SIZE) + CANVAS_SIZE) % CANVAS_SIZE;
+        allDraws.push([nx, gy]);
+        if (nx - pr < 0)             allDraws.push([nx + CANVAS_SIZE, gy]);
+        if (nx + pr > CANVAS_SIZE)   allDraws.push([nx - CANVAS_SIZE, gy]);
+      }
+
+      const fill = particleColor(p);
+      const cosT = Math.cos(p.theta);
+      const sinT = Math.sin(p.theta);
+
+      for (const [gx, gy] of allDraws) {
+        ctx.beginPath();
+        ctx.arc(gx, gy, pr, 0, Math.PI * 2);
+        ctx.fillStyle = fill;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(gx - pr * cosT, gy + pr * sinT);
+        ctx.lineTo(gx + pr * cosT, gy - pr * sinT);
+        ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+        ctx.lineWidth = 1.0;
+        ctx.stroke();
+      }
+    }
+
+  }
+
+  function linearTicks(lo, hi, n) {
+    const ticks = [];
+    if (n <= 1) return ticks;
+    const step = (hi - lo) / (n - 1);
+    for (let i = 0; i < n; i++) ticks.push(lo + i * step);
+    return ticks;
+  }
+
+  // ─── Transient max cluster size plot ─────────────────────────────
+  function drawTransientPlot() {
+    const PW = PLOT_W, PH = PLOT_H;
+    const pad = PLOT_PAD;
+    const areaX = pad.left, areaY = pad.top;
+    const areaW = PW - pad.left - pad.right;
+    const areaH = PH - pad.top - pad.bottom;
+
+    plotCtx.clearRect(0, 0, PW, PH);
+
+    // X domain: sliding time window in t/t_D
+    const xMax = simTime / tauD;
+    const xMin = Math.max(0, xMax - timeWindow);
+    const xRange = Math.max(xMax - xMin, 1e-9);
+
+    // Filter history to the current window
+    const inWindow = clusterHistory.filter(d => d.t >= xMin - 0.01);
+
+    // Y domain: linear up to max cluster size
+    let yMax = 2;
+    if (inWindow.length > 0) {
+      let hi = -Infinity;
+      for (const d of inWindow) { if (d.max > hi) hi = d.max; }
+      yMax = Math.max(2, Math.min(N_PARTICLES, hi * 1.05));
+    }
+
+    // Coordinate transforms
+    const toCanvasX = x => areaX + (x - xMin) / xRange * areaW;
+    const toCanvasY = y => areaY + areaH - Math.min(y, yMax) / yMax * areaH;
+
+    // Plot area background
+    plotCtx.fillStyle = '#f9f9f9';
+    plotCtx.fillRect(areaX, areaY, areaW, areaH);
+
+    // Horizontal grid
+    const yTicks = linearTicks(0, yMax, 5);
+    plotCtx.strokeStyle = '#e0e0e0';
+    plotCtx.lineWidth = 0.5;
+    for (const tv of yTicks) {
+      const gy = toCanvasY(tv);
+      plotCtx.beginPath();
+      plotCtx.moveTo(areaX, gy);
+      plotCtx.lineTo(areaX + areaW, gy);
+      plotCtx.stroke();
+    }
+
+    // Vertical grid every 1 time unit
+    const tStep = 1;
+    for (let t = Math.ceil(xMin / tStep) * tStep; t <= xMax + 0.01; t += tStep) {
+      const gx = toCanvasX(t);
+      if (gx >= areaX && gx <= areaX + areaW) {
+        plotCtx.beginPath();
+        plotCtx.moveTo(gx, areaY);
+        plotCtx.lineTo(gx, areaY + areaH);
+        plotCtx.stroke();
+      }
+    }
+
+    // Max cluster size curve
+    if (inWindow.length > 1) {
+      plotCtx.beginPath();
+      plotCtx.strokeStyle = '#1a6fd4';
+      plotCtx.lineWidth = 1.5;
+      let first = true;
+      for (const d of inWindow) {
+        if (d.t < xMin) { first = true; continue; }
+        const cx = toCanvasX(d.t);
+        const cy = toCanvasY(d.max);
+        if (first) { plotCtx.moveTo(cx, cy); first = false; }
+        else plotCtx.lineTo(cx, cy);
+      }
+      plotCtx.stroke();
+    }
+
+    // Axes border
+    plotCtx.strokeStyle = '#555';
+    plotCtx.lineWidth = 1.5;
+    plotCtx.strokeRect(areaX, areaY, areaW, areaH);
+
+    // X-axis tick labels
+    plotCtx.fillStyle = '#555';
+    plotCtx.font = '11px system-ui, -apple-system, sans-serif';
+    plotCtx.textAlign = 'center';
+    plotCtx.textBaseline = 'top';
+    for (let i = 0; i <= 3; i++) {
+      const t = xMin + i * xRange / 3;
+      const tx = toCanvasX(t);
+      plotCtx.fillText(t.toFixed(1), tx, areaY + areaH + 5);
+    }
+
+    // Y-axis tick labels
+    plotCtx.textAlign = 'right';
+    plotCtx.textBaseline = 'middle';
+    for (const tv of yTicks) {
+      plotCtx.fillText(tv.toFixed(0), areaX - 5, toCanvasY(tv));
+    }
+
+    // Axis labels
+    plotCtx.fillStyle = '#333';
+    plotCtx.font = '500 12px system-ui, -apple-system, sans-serif';
+    plotCtx.textAlign = 'center';
+    plotCtx.textBaseline = 'bottom';
+    plotCtx.fillText('Time', areaX + areaW / 2, PH - 2);
+
+    plotCtx.save();
+    plotCtx.translate(13, areaY + areaH / 2);
+    plotCtx.rotate(-Math.PI / 2);
+    plotCtx.textBaseline = 'top';
+    plotCtx.fillText('Max cluster size', 0, 0);
+    plotCtx.restore();
+  }
+
+  // ─── Avg max cluster size vs volume fraction ─────────────────────
+  function drawPhiPlot() {
+    const PW = PLOT_W, PH = PLOT_H;
+    const pad = PLOT_PAD;
+    const areaX = pad.left, areaY = pad.top;
+    const areaW = PW - pad.left - pad.right;
+    const areaH = PH - pad.top - pad.bottom;
+
+    phiCtx.clearRect(0, 0, PW, PH);
+
+    // X domain: 0.05 beyond slider limits
+    const xMin = 0.05, xMax = 0.45, xRange = xMax - xMin;
+
+    // Y domain: fixed linear scale 0–N
+    const yMax = N_PARTICLES;
+
+    const toX = x => areaX + (x - xMin) / xRange * areaW;
+    const toY = y => areaY + areaH - Math.min(y, yMax) / yMax * areaH;
+
+    // Plot background
+    phiCtx.fillStyle = '#f9f9f9';
+    phiCtx.fillRect(areaX, areaY, areaW, areaH);
+
+    // Horizontal grid
+    const yTicks = linearTicks(0, yMax, 5);
+    phiCtx.strokeStyle = '#e0e0e0';
+    phiCtx.lineWidth = 0.5;
+    for (const tv of yTicks) {
+      const gy = toY(tv);
+      phiCtx.beginPath(); phiCtx.moveTo(areaX, gy); phiCtx.lineTo(areaX + areaW, gy); phiCtx.stroke();
+    }
+
+    // Vertical grid every 0.1 in φ
+    for (let x = 0.1; x <= 0.401; x += 0.1) {
+      const gx = toX(x);
+      phiCtx.beginPath(); phiCtx.moveTo(gx, areaY); phiCtx.lineTo(gx, areaY + areaH); phiCtx.stroke();
+    }
+
+    // Scatter dots — hue encodes U0/kBT (blue low → red high)
+    for (const d of phiHistory) {
+      const cx = toX(d.phi);
+      const cy = toY(d.max);
+      if (cy < areaY || cy > areaY + areaH) continue;
+      const hue = 220 * (1 - Math.min(d.gamma, 50) / 50);
+      phiCtx.fillStyle = `hsla(${hue},80%,45%,0.4)`;
+      phiCtx.beginPath();
+      phiCtx.arc(cx, cy, 2, 0, Math.PI * 2);
+      phiCtx.fill();
+    }
+
+    // Time-averaged markers per parameter set (phi, gamma)
+    for (const g of phiGroups.values()) {
+      const meanMax = g.sum / g.n;
+      const cx = toX(g.phi);
+      const cy = toY(meanMax);
+      if (cy < areaY || cy > areaY + areaH) continue;
+      const hue = 220 * (1 - Math.min(g.gamma, 50) / 50);
+      phiCtx.fillStyle = `hsl(${hue},85%,38%)`;
+      phiCtx.strokeStyle = 'rgba(0,0,0,0.9)';
+      phiCtx.lineWidth = 1.3;
+      phiCtx.beginPath();
+      phiCtx.arc(cx, cy, 5, 0, Math.PI * 2);
+      phiCtx.fill();
+      phiCtx.stroke();
+    }
+
+    // Current-φ vertical marker
+    phiCtx.strokeStyle = 'rgba(200,60,60,0.7)';
+    phiCtx.lineWidth = 1.5;
+    const curX = toX(phi);
+    phiCtx.beginPath(); phiCtx.moveTo(curX, areaY); phiCtx.lineTo(curX, areaY + areaH); phiCtx.stroke();
+
+    // Axes border
+    phiCtx.strokeStyle = '#555';
+    phiCtx.lineWidth = 1.5;
+    phiCtx.strokeRect(areaX, areaY, areaW, areaH);
+
+    // X-axis tick labels
+    phiCtx.fillStyle = '#555';
+    phiCtx.font = '11px system-ui, -apple-system, sans-serif';
+    phiCtx.textAlign = 'center';
+    phiCtx.textBaseline = 'top';
+    for (let x = 0.1; x <= 0.401; x += 0.1) {
+      phiCtx.fillText(x.toFixed(2), toX(x), areaY + areaH + 5);
+    }
+
+    // Y-axis tick labels
+    phiCtx.textAlign = 'right';
+    phiCtx.textBaseline = 'middle';
+    for (const tv of yTicks) {
+      phiCtx.fillText(tv.toFixed(0), areaX - 5, toY(tv));
+    }
+
+    // Axis labels
+    phiCtx.fillStyle = '#333';
+    phiCtx.font = '500 12px system-ui, -apple-system, sans-serif';
+    phiCtx.textAlign = 'center';
+    phiCtx.textBaseline = 'bottom';
+    phiCtx.fillText('Area fraction', areaX + areaW / 2, PH - 2);
+
+    phiCtx.save();
+    phiCtx.translate(13, areaY + areaH / 2);
+    phiCtx.rotate(-Math.PI / 2);
+    phiCtx.textBaseline = 'top';
+    phiCtx.fillText('Avg max cluster size', 0, 0);
+    phiCtx.restore();
+  }
+
+  // ─── Animation loop ───────────────────────────────────────────────
+  function loop() {
+    for (let s = 0; s < stepsPerFrame; s++) step();
+
+    const maxCluster = computeMaxCluster();
+    const tStar = simTime / tauD;
+    clusterHistory.push({ t: tStar, max: maxCluster });
+    while (clusterHistory.length > 0 && clusterHistory[0].t < tStar - timeWindow - 0.5)
+      clusterHistory.shift();
+
+    phiHistory.push({ phi, max: maxCluster, gamma });
+    const gkey = `${phi.toFixed(2)}_${gamma.toFixed(1)}`;
+    if (!phiGroups.has(gkey)) phiGroups.set(gkey, { phi, gamma, sum: 0, n: 0 });
+    const g = phiGroups.get(gkey);
+    g.sum += maxCluster;
+    g.n++;
+
+    draw();
+    drawTransientPlot();
+    drawPhiPlot();
+    requestAnimationFrame(loop);
+  }
+
+  // ─── Adaptive timestep ────────────────────────────────────────────
+  // DT must resolve both the contact spring oscillation and Stokes drag relaxation.
+  // τ_contact = π·√(m_eff/k);  τ_drag_rot = ρ_p·r_min/(16·η₀)  (smallest particle, rotation)
+  function updateTimestep() {
+    const rMin = R_MEAN * Math.max(0.1, 1 - poly);
+    const m_eff = RHO_P * Math.PI * rMin * rMin / 2;
+    const tau_contact  = Math.PI * Math.sqrt(m_eff / stiffness);
+    const tau_drag_rot = RHO_P * rMin / (16 * eta0);
+    // Spring oscillations need tighter resolution than drag relaxation
+    dt = Math.min(tau_contact / 20, tau_drag_rot / 8);
+    // keep ~0.002 simulation time per frame; cap to prevent frames taking too long
+    stepsPerFrame = Math.min(200, Math.max(5, Math.round(0.002 / dt)));
+  }
+
+  // ─── Slider descriptor functions ─────────────────────────────────
+  function updateAttrStrength() {
+    const denom = stiffness * Math.pow(attrRange * R_MEAN, 2);
+    attrStrength = denom > 0 ? (2 * gamma * kBT) / denom : 0;
+  }
+
+  // ─── UI wiring ────────────────────────────────────────────────────
+  const phiSlider  = document.getElementById('phi-slider');
+  const phiVal     = document.getElementById('phi-val');
+  phiSlider.addEventListener('input', () => {
+    phi = parseFloat(phiSlider.value);
+    phiVal.textContent = phi.toFixed(2);
+    rescaleBox(phi);
+  });
+
+
+  const gammaSlider = document.getElementById('gamma-slider');
+  const gammaVal    = document.getElementById('gamma-val');
+  gamma = parseFloat(gammaSlider.value);
+  gammaVal.textContent = gamma.toFixed(1);
+  updateAttrStrength();
+  gammaSlider.addEventListener('input', () => {
+    gamma = parseFloat(gammaSlider.value);
+    gammaVal.textContent = gamma.toFixed(1);
+    updateAttrStrength();
+  });
+
+
+  // ─── Start ────────────────────────────────────────────────────────
+  initParticles();
+  updateTimestep();   // sets dt, stepsPerFrame, and ip-dt display
+  loop();
+  </script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #ffffff;
+  color: #222222;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  padding: 24px 16px;
+}
+#canvas-wrapper {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  align-items: flex-start;
+}
+#left-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+#canvas {
+  border: 1px solid #ccc;
+  background: #ffffff;
+  display: block;
+}
+#plot-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+#plotCanvas, #phiCanvas {
+  background: #ffffff;
+  display: block;
+}
+.plot-wrap {
+  position: relative;
+  display: inline-block;
+}
+#controls {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 500px;
+}
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.control-row label {
+  width: 180px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: #555555;
+  flex-shrink: 0;
+}
+.control-row input[type=range] {
+  flex: 1;
+  accent-color: #2a6fcc;
+}
+.control-row span {
+  width: 95px;
+  text-align: right;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: #222222;
+}
+
+/* Mobile layout */
+@media (max-width: 700px) {
+  body {
+    padding: 12px 8px;
+  }
+  #canvas-wrapper {
+    flex-direction: column;
+    width: 100%;
+  }
+  #left-column {
+    width: 100%;
+  }
+  #canvas {
+    width: 100%;
+    height: auto;
+  }
+  #controls {
+    max-width: 100%;
+  }
+  .control-row label {
+    width: 130px;
+  }
+  .control-row span {
+    width: 72px;
+  }
+  #plot-column {
+    flex-direction: row;
+    width: 100%;
+  }
+  #plot-column > * {
+    flex: 1;
+    min-width: 0;
+  }
+  #plotCanvas, #phiCanvas {
+    width: 100%;
+    height: auto;
+  }
+}

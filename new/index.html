@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modelling moving particles</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="hero">
+        <div class="hero-content">
+            <h1>modelling moving particles.</h1>
+            <p>research lab at the University of Edinburgh.</p>
+        </div>
+    </header>
+
+    <section id="expertise" class="expertise">
+        <h2>our modelling expertise</h2>
+        <p>We specialise in advanced computational models for physical systems, leveraging state-of-the-art algorithms and domain knowledge to produce accurate and efficient simulations.</p>
+        <div class="expertise-grid">
+            <div class="expertise-item">
+                <h3>Suspension rheology</h3>
+                <p>Interactive shear flow modelling.</p>
+                <a href="shear_simulator.html" target="_blank" class="btn primary">Toy rheology simulator</a>
+            </div>
+            <div class="expertise-item">
+                <h3>Colloidal gelation</h3>
+                <p>Description of the second area of expertise.</p>
+                <a href="gelation_simulator.html" target="_blank" class="btn primary">Toy gelation simulator</a>
+            </div>
+            <div class="expertise-item">
+                <h3>Constitutive modelling</h3>
+                <p>Description of the third area of expertise.</p>
+            </div>
+            <div class="expertise-item">
+                <h3>Processes and applications</h3>
+                <p>Description of the fourth area of expertise.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="collaborations" class="collaborations">
+        <h2>collaborations and partnerships</h2>
+        <p>Our work is strengthened through partnerships with industry leaders, academic institutions, and research consortia. Together we tackle complex challenges.</p>
+        <ul class="institutions-list" id="institutions-list"></ul>
+    </section>
+
+    <section id="team" class="team">
+        <h2>team</h2>
+        <p>Meet the multidisciplinary team behind our research.</p>
+        <div class="team-member">
+            <img src="photos/ChrisNess.jpg" alt="Chris Ness">
+            <div class="member-bio">
+                <h3>Chris Ness</h3>
+                <p>Short bio describing background, role, and expertise.</p>
+                <ol class="member-pubs"></ol>
+            </div>
+        </div>
+        
+        <div class="team-member">
+            <img src="photos/AashishGupta.png" alt="Aashish Gupta">
+            <div class="member-bio">
+                <h3>Aashish Gupta</h3>
+                <p>Short bio describing background, role, and expertise.</p>
+                <ol class="member-pubs"></ol>
+            </div>
+        </div>
+
+        <div class="team-member">
+            <img src="photos/PeterWan.png" alt="Peter Wan">
+            <div class="member-bio">
+                <h3>Peter Wan</h3>
+                <p>Short bio describing background, role, and expertise.</p>
+                <ol class="member-pubs"></ol>
+            </div>
+        </div>
+
+        <div class="team-member">
+            <img src="photos/AlexDixon.png" alt="Alex Dixon">
+            <div class="member-bio">
+                <h3>Alex Dixon</h3>
+                <p>Short bio describing background, role, and expertise.</p>
+                <ol class="member-pubs"></ol>
+            </div>
+        </div>
+        
+        <div class="team-member">
+            <img src="photos/AndyZeng.png" alt="Andy Zeng">
+            <div class="member-bio">
+                <h3>Andy Zeng</h3>
+                <p>Short bio describing background, role, and expertise.</p>
+                <ol class="member-pubs"></ol>
+            </div>
+        </div>
+        
+        <div class="team-member">
+            <img src="photos/XuanLi.png" alt="Xuan Li">
+            <div class="member-bio">
+                <h3>Xuan Li</h3>
+                <p>Short bio describing background, role, and expertise.</p>
+                <ol class="member-pubs"></ol>
+            </div>
+        </div>
+        
+        <div class="team-member">
+            <img src="photos/BhanuBhowmik.png" alt="Bhanu Bhowmik">
+            <div class="member-bio">
+                <h3>Bhanu Bhowmik</h3>
+                <p>Short bio describing background, role, and expertise.</p>
+                <ol class="member-pubs"></ol>
+            </div>
+        </div>
+        
+        <div class="team-member">
+            <img src="photos/AlexRobertson.png" alt="Alex Robertson">
+            <div class="member-bio">
+                <h3>Alex Robertson</h3>
+                <p>Short bio describing background, role, and expertise.</p>
+                <ol class="member-pubs"></ol>
+            </div>
+        </div>
+        <div class="team-member">
+            <img src="photos/YankaiLi.png" alt="Yankai Li">
+            <div class="member-bio">
+                <h3>Yankai Li</h3>
+                <p>Short bio describing background, role, and expertise.</p>
+                <ol class="member-pubs"></ol>
+            </div>
+        </div>
+    </section>
+
+    <section id="publications" class="publications">
+        <h2>publications</h2>
+        <ol id="pub-list" reversed></ol>
+        <button id="toggle-more-pubs">▼</button>
+        <ol id="pub-list-more" reversed></ol>
+    </section>
+
+    <footer class="footer">
+        <div class="footer-content">
+            <p>© 2026 modelling moving particles. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+    // simple BibTeX parser for basic fields
+    function formatAuthors(authors) {
+        // convert "Last, First Middle and ..." into "F. Last, ..."
+        return authors.split(/\s+and\s+/).map(name => {
+            const parts = name.split(',').map(s => s.trim());
+            if (parts.length === 2) {
+                const [last, firsts] = parts;
+                const initial = firsts.split(/\s+/)[0][0];
+                return `${initial}. ${last}`;
+            }
+            // fallback if no comma
+            const words = name.trim().split(/\s+/);
+            if (words.length > 1) {
+                return `${words[0][0]}. ${words.slice(1).join(' ')}`;
+            }
+            return name;
+        }).join(', ');
+    }
+
+    // helper constructs a publication <li> element using same formatting for all lists
+    function createListItem(fields) {
+        const li = document.createElement('li');
+        const title = fields.title || 'Untitled';
+        let authors = fields.author || '';
+        const journal = fields.journal || '';
+        const volume = fields.volume || '';
+        const number = fields.number || '';
+        const pages = fields.pages || '';
+        const year = fields.year || '';
+        if (authors) authors = formatAuthors(authors);
+        li.innerHTML = `${title}`;
+        if (journal) {
+            li.innerHTML += `<br><strong>${journal}</strong>`;
+            let extra = '';
+            if (volume) extra += ` ${volume}`;
+            if (number) extra += `(${number})`;
+            if (pages) {
+                const norm = pages.replace(/--/g, '-');
+                extra += `, ${norm}`;
+            }
+            if (extra) li.innerHTML += extra;
+            if (year) li.innerHTML += ` (${year})`;
+        }
+        if (authors) li.innerHTML += `<br>${authors}`;
+        return li;
+    }
+
+    function extractInstitutionsFromBib(text) {
+        // Extract affiliation blocks from bib entries
+        const affiliationRegex = /affiliation=\{([^}]+)\}/g;
+        const institutionCounts = {};
+        
+        let match;
+        while ((match = affiliationRegex.exec(text)) !== null) {
+            const affiliationBlock = match[1];
+            const lines = affiliationBlock.split('\n');
+            
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (trimmed.includes(':')) {
+                    const parts = trimmed.split(':', 2);
+                    if (parts.length === 2) {
+                        const institutionPart = parts[1].trim().replace(/;$/, '');
+                        // Split multiple institutions separated by commas
+                        const institutions = institutionPart.split(',').map(i => i.trim());
+                        
+                        for (const inst of institutions) {
+                            if (inst && inst !== 'N/A') {
+                                institutionCounts[inst] = (institutionCounts[inst] || 0) + 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Convert to array and sort by frequency (descending), then alphabetically
+        const sorted = Object.entries(institutionCounts)
+            .sort((a, b) => {
+                if (b[1] !== a[1]) return b[1] - a[1];  // Sort by count descending
+                return a[0].localeCompare(b[0]);  // Then alphabetically
+            });
+        
+        return sorted.map(entry => entry[0]);
+    }
+
+    function populateInstitutions(institutions) {
+        const list = document.getElementById('institutions-list');
+        institutions.forEach(inst => {
+            const li = document.createElement('li');
+            li.textContent = inst;
+            list.appendChild(li);
+        });
+    }
+
+    async function loadPublications() {
+        try {
+            const res = await fetch('papers.bib');
+            const text = await res.text();
+            
+            // Extract and populate institutions
+            const institutions = extractInstitutionsFromBib(text);
+            populateInstitutions(institutions);
+            const rawEntries = text.split(/@/).filter(e => e.trim());
+            const parsed = rawEntries.map(e => {
+                const lines = e.split(/\r?\n/).map(l => l.trim());
+                const fields = {};
+                lines.slice(1).forEach(line => {
+                    const match = line.match(/^(\w+)\s*=\s*\{(.*)\},?$/);
+                    if (match) {
+                        fields[match[1].toLowerCase()] = match[2];
+                    }
+                });
+                return fields;
+            });
+            // sort descending by year (numeric)
+            parsed.sort((a, b) => {
+                const ya = parseInt(a.year) || 0;
+                const yb = parseInt(b.year) || 0;
+                return yb - ya;
+            });
+            const list = document.getElementById('pub-list');
+            const listMore = document.getElementById('pub-list-more');
+            const toggleBtn = document.getElementById('toggle-more-pubs');
+
+            // split into recent (first 5) and older publications
+            const recentPubs = parsed.slice(0, 5);
+            const olderPubs = parsed.slice(5);
+
+            // set start value for reversed numbering on main list
+            list.setAttribute('start', parsed.length);
+
+            // build list of recent publications
+            recentPubs.forEach(fields => {
+                list.appendChild(createListItem(fields));
+            });
+
+            // if there are older publications, populate the hidden list and show toggle button
+            if (olderPubs.length > 0) {
+                olderPubs.forEach(fields => {
+                    listMore.appendChild(createListItem(fields));
+                });
+                toggleBtn.style.display = 'inline-block';
+                
+                // set start value for reversed numbering in the second list
+                listMore.setAttribute('start', parsed.length - recentPubs.length);
+
+                // toggle functionality
+                toggleBtn.addEventListener('click', () => {
+                    if (listMore.style.display === 'none') {
+                        listMore.style.display = 'block';
+                        toggleBtn.textContent = '▲';
+                    } else {
+                        listMore.style.display = 'none';
+                        toggleBtn.textContent = '▼';
+                    }
+                });
+            }
+
+            // after global list, build per-member lists
+            populateMemberPubs(parsed);
+        } catch (err) {
+            console.error('failed to load bib', err);
+        }
+    }
+
+    function populateMemberPubs(entries) {
+        // for each team-member, get name and fill their .member-pubs list
+        document.querySelectorAll('.team-member').forEach(member => {
+            const nameElem = member.querySelector('h3');
+            if (!nameElem) return;
+            const name = nameElem.textContent.trim().toLowerCase();
+            const listEl = member.querySelector('.member-pubs');
+            if (!listEl) return;
+            
+            // Skip Chris Ness - don't show his publications
+            if (name === 'chris ness') return;
+            
+            // filter entries where any author matches the member name approximately
+            function normalizeAuthorString(auth) {
+                // split authors separated by and
+                return auth.split(/\s+and\s+/i).map(a => a.trim());
+            }
+            function authorMatches(author, memberName) {
+                // convert both to lowercase tokens
+                const a = author.toLowerCase();
+                const mTokens = memberName.split(/\s+/).filter(Boolean);
+                // if surname is present in author string and at least one other token matches
+                return mTokens.every(tok => a.includes(tok.substring(0, tok.length)));
+            }
+            const matches = entries.filter(f => {
+                if (!f.author) return false;
+                const auths = normalizeAuthorString(f.author);
+                return auths.some(auth => authorMatches(auth, name));
+            });
+            matches.forEach(f => {
+                // reuse the same formatted list item as the main list
+                listEl.appendChild(createListItem(f));
+            });
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', loadPublications);
+    </script>
+</body>
+</html>
