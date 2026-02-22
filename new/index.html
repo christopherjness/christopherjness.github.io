@@ -3,13 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modelling moving particles</title>
+    <title>moving particles</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header class="hero">
+        <img src="photos/edinburgh.png" alt="" class="hero-bg" loading="lazy" decoding="async">
+        <canvas id="particles-canvas" class="particles-canvas"></canvas>
+        <div class="spotlight"></div>
         <div class="hero-content">
-            <h1>modelling moving particles</h1>
+            <h1>moving particles</h1>
             <p>research lab at the University of Edinburgh</p>
         </div>
     </header>
@@ -21,12 +24,12 @@
             <div class="expertise-item">
                 <h3>Suspension rheology</h3>
                 <p>Linking micromechanics to bulk flow <i>via</i> particle-based simulation.</p>
-                <a href="#" onclick="openSimulator('shear_simulator.html'); return false;" class="btn primary">rheology simulator</a>
+                <a href="#" onclick="openSimulator('simulators/shear_simulator.html'); return false;" class="btn primary">rheology simulator</a>
             </div>
             <div class="expertise-item">
                 <h3>Colloidal gelation</h3>
                 <p>Description of the pertise.</p>
-                <a href="#" onclick="openSimulator('gelation_simulator.html'); return false;" class="btn primary">gelation simulator</a>
+                <a href="#" onclick="openSimulator('simulators/gelation_simulator.html'); return false;" class="btn primary">gelation simulator</a>
             </div>
             <div class="expertise-item">
                 <h3>Constitutive modelling</h3>
@@ -57,128 +60,145 @@
 
     <section id="team" class="team">
         <h2>group</h2>
-        <div class="team-member team-member-lead">
-            <img src="photos/ChrisNess.webp" alt="Chris Ness" loading="lazy" decoding="async">
-            <div class="member-bio">
-                <h3>Chris Ness</h3>
-                <p>Short bio describing background, role, and expertise.</p>
-                <ol class="member-pubs"></ol>
-            </div>
-        </div>
-        
-        <div class="team-member">
-            <img src="photos/AashishGupta.webp" alt="Aashish Gupta" loading="lazy" decoding="async">
-            <div class="member-bio">
-                <h3>Aashish Gupta</h3>
-                <p>Short bio describing background, role, and expertise.</p>
-                <ol class="member-pubs"></ol>
-            </div>
-        </div>
-
-        <div class="team-member">
-            <img src="photos/PeterWan.webp" alt="Peter Wan" loading="lazy" decoding="async">
-            <div class="member-bio">
-                <h3>Peter Wan</h3>
-                <p>Short bio describing background, role, and expertise.</p>
-                <ol class="member-pubs"></ol>
-            </div>
-        </div>
-
-        <div class="team-member">
-            <img src="photos/AlexDixon.webp" alt="Alex Dixon" loading="lazy" decoding="async">
-            <div class="member-bio">
-                <h3>Alex Dixon</h3>
-                <p>Short bio describing background, role, and expertise.</p>
-                <ol class="member-pubs"></ol>
-            </div>
-        </div>
-        
-        <div class="team-member">
-            <img src="photos/AndyZeng.webp" alt="Andy Zeng" loading="lazy" decoding="async">
-            <div class="member-bio">
-                <h3>Andy Zeng</h3>
-                <p>Short bio describing background, role, and expertise.</p>
-                <ol class="member-pubs"></ol>
-            </div>
-        </div>
-        
-        <div class="team-member">
-            <img src="photos/XuanLi.webp" alt="Xuan Li" loading="lazy" decoding="async">
-            <div class="member-bio">
-                <h3>Xuan Li</h3>
-                <p>Short bio describing background, role, and expertise.</p>
-                <ol class="member-pubs"></ol>
-            </div>
-        </div>
-        
-        <div class="team-member">
-            <img src="photos/BhanuBhowmik.webp" alt="Bhanu Bhowmik" loading="lazy" decoding="async">
-            <div class="member-bio">
-                <h3>Bhanu Bhowmik</h3>
-                <p>Short bio describing background, role, and expertise.</p>
-                <ol class="member-pubs"></ol>
-            </div>
-        </div>
-        
-        <div class="team-member">
-            <img src="photos/AlexRobertson.webp" alt="Alex Robertson" loading="lazy" decoding="async">
-            <div class="member-bio">
-                <h3>Alex Robertson</h3>
-                <p>Short bio describing background, role, and expertise.</p>
-                <ol class="member-pubs"></ol>
-            </div>
-        </div>
-        <div class="team-member">
-            <img src="photos/YankaiLi.webp" alt="Yankai Li" loading="lazy" decoding="async">
-            <div class="member-bio">
-                <h3>Yankai Li</h3>
-                <p>Short bio describing background, role, and expertise.</p>
-                <ol class="member-pubs"></ol>
-            </div>
-        </div>
+        <div id="team-members"></div>
     </section>
 
     <section id="publications" class="publications">
         <h2>publications</h2>
         <ol id="pub-list" reversed></ol>
-        <button id="toggle-more-pubs">&gt;</button>
+        <button id="toggle-more-pubs">full list</button>
         <ol id="pub-list-more" reversed></ol>
+    </section>
+
+    <section id="logos" class="logos">
+        <div class="logos-row">
+            <img src="logos/UoE_Stacked%20Logo_Black_v1_160215.png" alt="University of Edinburgh logo" class="logo-standalone" loading="lazy" decoding="async">
+            <img src="logos/RAE%20Logo_Black.png" alt="RAE logo" loading="lazy" decoding="async">
+            <img src="logos/UKRI_EPSR_Council-Logo_Horiz-RGB.png" alt="UKRI EPSRC logo" class="logo-static" loading="lazy" decoding="async">
+            <img src="logos/Leverhulme_Trust_CMYK_blue.jpg" alt="Leverhulme Trust logo" loading="lazy" decoding="async">
+        </div>
     </section>
 
     <footer class="footer">
         <div class="footer-content">
-            <p>© 2026 modelling moving particles. All rights reserved.</p>
+            
         </div>
     </footer>
 
     <script>
-    // open simulator in panel
     function openSimulator(url) {
         const panel = document.getElementById('simulator-panel');
         const frame = document.getElementById('simulator-frame');
         frame.src = url;
+        frame.style.height = '546px';
         panel.style.display = 'block';
-        
-        // set height based on which simulator
-        if (url.includes('shear')) {
-            frame.style.height = '546px';
-        } else if (url.includes('gelation')) {
-            frame.style.height = '546px';
-        }
-        
-        // scroll to panel
         panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    // close simulator panel
     function closeSimulator() {
         const panel = document.getElementById('simulator-panel');
-        const frame = document.getElementById('simulator-frame');
         panel.style.display = 'none';
-        frame.src = '';
+        panel.querySelector('#simulator-frame').src = '';
     }
 
-    // simple BibTeX parser for basic fields
+    // Spotlight effect for hero section
+    const hero = document.querySelector('.hero');
+    const spotlight = document.querySelector('.spotlight');
+    let mouseX = null;
+    let mouseY = null;
+    
+    if (hero && spotlight) {
+        hero.addEventListener('mousemove', (e) => {
+            const rect = hero.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+            spotlight.style.background = `radial-gradient(circle 300px at ${mouseX}px ${mouseY}px, rgba(255,255,255,0.15), transparent)`;
+        });
+        
+        hero.addEventListener('mouseleave', () => {
+            spotlight.style.background = 'none';
+            mouseX = null;
+            mouseY = null;
+        });
+    }
+
+    // Particle animation for hero section
+    const canvas = document.getElementById('particles-canvas');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let animationFrameId;
+
+        function resizeCanvas() {
+            canvas.width = hero.offsetWidth;
+            canvas.height = hero.offsetHeight;
+        }
+
+        class Particle {
+            constructor() {
+                this.reset();
+                this.y = Math.random() * canvas.height;
+            }
+
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 12 + 8;
+                this.speedX = Math.random() * 0.3 - 0.15;
+                this.speedY = Math.random() * 0.3 + 0.3;
+                this.opacity = Math.random() * 0.15 + 0.05;
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+
+                if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
+                    this.reset();
+                }
+            }
+
+            draw() {
+                // Only draw if mouse is present and particle is within spotlight radius
+                if (mouseX !== null && mouseY !== null) {
+                    const distance = Math.sqrt(Math.pow(this.x - mouseX, 2) + Math.pow(this.y - mouseY, 2));
+                    if (distance <= 300) {
+                        // Fade particles at the edge of the spotlight
+                        const fadeFactor = 1 - (distance / 300);
+                        ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity * fadeFactor})`;
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            }
+        }
+
+        function init() {
+            resizeCanvas();
+            particles = [];
+            for (let i = 0; i < 100; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(particle => {
+                particle.update();
+                particle.draw();
+            });
+            animationFrameId = requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+        });
+
+        init();
+        animate();
+    }
+
     function formatAuthors(authors) {
         // convert "Last, First Middle and ..." into "F. Last, ..."
         return authors.split(/\s+and\s+/).map(name => {
@@ -197,7 +217,6 @@
         }).join(', ');
     }
 
-    // helper constructs a publication <li> element using same formatting for all lists
     function createListItem(fields) {
         const li = document.createElement('li');
         const title = fields.title || 'Untitled';
@@ -215,14 +234,38 @@
             if (volume) extra += ` ${volume}`;
             if (number) extra += `(${number})`;
             if (pages) {
-                const norm = pages.replace(/--/g, '-');
-                extra += `, ${norm}`;
+                extra += `, ${pages.replace(/--/g, '-')}`;
             }
             if (extra) li.innerHTML += extra;
             if (year) li.innerHTML += ` (${year})`;
         }
         if (authors) li.innerHTML += `<br>${authors}`;
         return li;
+    }
+
+    let featuredPaperKeys = [];
+
+    function parseFeaturedPapers(text) {
+        const lines = text.split(/\r?\n/);
+        const featured = [];
+        let inFeatured = false;
+
+        lines.forEach(line => {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith('#')) return;
+            const lowerTrimmed = trimmed.toLowerCase();
+            if (lowerTrimmed === 'featured papers') {
+                inFeatured = true;
+                return;
+            }
+            if (lowerTrimmed === 'pi' || lowerTrimmed === 'members' || lowerTrimmed === 'former members') {
+                inFeatured = false;
+                return;
+            }
+            if (inFeatured) featured.push(trimmed);
+        });
+
+        return featured;
     }
 
     function extractInstitutionsFromBib(text) {
@@ -246,7 +289,7 @@
                         
                         for (const inst of institutions) {
                             if (inst && inst !== 'N/A' && !inst.toLowerCase().includes('edinburgh')) {
-                                institutionCounts[inst] = (institutionCounts[inst] || 0) + 1;
+                                institutionCounts[inst] = (institutionCounts[inst] ?? 0) + 1;
                             }
                         }
                     }
@@ -275,7 +318,7 @@
 
     async function loadPublications() {
         try {
-            const res = await fetch('papers.bib');
+            const res = await fetch('content/papers.bib');
             const text = await res.text();
             
             // Extract and populate institutions
@@ -285,6 +328,8 @@
             const parsed = rawEntries.map(e => {
                 const lines = e.split(/\r?\n/).map(l => l.trim());
                 const fields = {};
+                const keyMatch = lines[0].match(/\{([^,]+),?/);
+                if (keyMatch) fields._key = keyMatch[1].trim();
                 lines.slice(1).forEach(line => {
                     const match = line.match(/^(\w+)\s*=\s*\{(.*)\},?$/);
                     if (match) {
@@ -302,38 +347,46 @@
             const list = document.getElementById('pub-list');
             const listMore = document.getElementById('pub-list-more');
             const toggleBtn = document.getElementById('toggle-more-pubs');
+            list.innerHTML = '';
+            listMore.innerHTML = '';
+            listMore.style.display = 'none';
+            toggleBtn.textContent = 'full list';
 
-            // split into recent (first 5) and older publications
-            const recentPubs = parsed.slice(0, 5);
-            const olderPubs = parsed.slice(5);
+            // split into featured and the rest of the publications
+            const featuredPubs = featuredPaperKeys.length
+                ? featuredPaperKeys
+                    .map(key => {
+                        const lowerKey = key.toLowerCase();
+                        return parsed.find(entry => (entry._key || '').toLowerCase() === lowerKey);
+                    })
+                    .filter(Boolean)
+                : parsed.slice(0, 5);
 
             // set start value for reversed numbering on main list
             list.setAttribute('start', parsed.length);
 
-            // build list of recent publications
-            recentPubs.forEach(fields => {
+            // build list of featured publications
+            featuredPubs.forEach(fields => {
                 list.appendChild(createListItem(fields));
             });
 
-            // if there are older publications, populate the hidden list and show toggle button
-            if (olderPubs.length > 0) {
-                olderPubs.forEach(fields => {
+            // if there are publications, populate the hidden list and show toggle button
+            if (parsed.length > 0) {
+                listMore.setAttribute('start', parsed.length);
+                parsed.forEach(fields => {
                     listMore.appendChild(createListItem(fields));
                 });
                 toggleBtn.style.display = 'inline-block';
-                
-                // set start value for reversed numbering in the second list
-                listMore.setAttribute('start', parsed.length - recentPubs.length);
 
                 // toggle functionality
                 toggleBtn.addEventListener('click', () => {
                     const isHidden = listMore.style.display === 'none' || listMore.style.display === '';
                     if (isHidden) {
                         listMore.style.display = 'block';
-                        toggleBtn.textContent = 'v';
+                        toggleBtn.textContent = 'hide full list';
                     } else {
                         listMore.style.display = 'none';
-                        toggleBtn.textContent = '>';
+                        toggleBtn.textContent = 'full list';
                     }
                 });
             }
@@ -345,43 +398,147 @@
         }
     }
 
+    function authorMatches(author, memberName) {
+        const a = author.toLowerCase();
+        const mTokens = memberName.split(/\s+/).filter(Boolean);
+        return mTokens.every(tok => a.includes(tok.substring(0, tok.length)));
+    }
+
     function populateMemberPubs(entries) {
-        // for each team-member, get name and fill their .member-pubs list
         document.querySelectorAll('.team-member').forEach(member => {
-            const nameElem = member.querySelector('h3');
+            const nameElem = member.querySelector('.member-bio strong');
             if (!nameElem) return;
             const name = nameElem.textContent.trim().toLowerCase();
+            if (name === 'chris ness') return; // Skip Chris Ness
+            
             const listEl = member.querySelector('.member-pubs');
             if (!listEl) return;
             
-            // Skip Chris Ness - don't show his publications
-            if (name === 'chris ness') return;
-            
-            // filter entries where any author matches the member name approximately
-            function normalizeAuthorString(auth) {
-                // split authors separated by and
-                return auth.split(/\s+and\s+/i).map(a => a.trim());
-            }
-            function authorMatches(author, memberName) {
-                // convert both to lowercase tokens
-                const a = author.toLowerCase();
-                const mTokens = memberName.split(/\s+/).filter(Boolean);
-                // if surname is present in author string and at least one other token matches
-                return mTokens.every(tok => a.includes(tok.substring(0, tok.length)));
-            }
-            const matches = entries.filter(f => {
-                if (!f.author) return false;
-                const auths = normalizeAuthorString(f.author);
-                return auths.some(auth => authorMatches(auth, name));
-            });
-            matches.forEach(f => {
-                // reuse the same formatted list item as the main list
+            entries.filter(f => f.author?.split(/\s+and\s+/i).some(auth => authorMatches(auth, name))).forEach(f => {
                 listEl.appendChild(createListItem(f));
             });
         });
     }
 
-    document.addEventListener('DOMContentLoaded', loadPublications);
+    function buildTeamMemberCard(member, isLead) {
+        const card = document.createElement('div');
+        card.className = isLead ? 'team-member team-member-lead' : 'team-member';
+
+        const img = document.createElement('img');
+        const photoPath = member.photo.startsWith('photos/') ? member.photo : `photos/${member.photo}`;
+        img.src = photoPath;
+        img.alt = member.name;
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        if (member.isFormer) {
+            img.style.filter = 'grayscale(100%)';
+        }
+
+        const bio = document.createElement('div');
+        bio.className = 'member-bio';
+
+        if (member.scholarUrl) {
+            const scholarRow = document.createElement('div');
+            scholarRow.className = 'member-scholar-row';
+
+            const scholarLink = document.createElement('a');
+            scholarLink.className = 'member-scholar';
+            scholarLink.href = member.scholarUrl;
+            scholarLink.target = '_blank';
+            scholarLink.rel = 'noopener noreferrer';
+
+            const scholarIcon = document.createElement('img');
+            scholarIcon.src = 'logos/Google_Scholar_logo.svg.png';
+            scholarIcon.alt = 'Google Scholar';
+            scholarIcon.loading = 'lazy';
+            scholarIcon.decoding = 'async';
+
+            scholarLink.appendChild(scholarIcon);
+            scholarRow.appendChild(scholarLink);
+            bio.appendChild(scholarRow);
+        }
+
+        const desc = document.createElement('p');
+        const nameStrong = document.createElement('strong');
+        nameStrong.textContent = member.name;
+        desc.appendChild(nameStrong);
+        if (member.bio) {
+            desc.appendChild(document.createTextNode(' ' + member.bio));
+        }
+
+        const pubs = document.createElement('ol');
+        pubs.className = 'member-pubs';
+
+        bio.appendChild(desc);
+        bio.appendChild(pubs);
+
+        card.appendChild(img);
+        card.appendChild(bio);
+
+        return card;
+    }
+
+    function parseTeamContent(text) {
+        const lines = text.split(/\r?\n/);
+        const members = [];
+        let section = '';
+
+        lines.forEach(line => {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith('#')) return;
+            const lowerTrimmed = trimmed.toLowerCase();
+            
+            if (['pi', 'members', 'former members'].includes(lowerTrimmed)) {
+                section = lowerTrimmed;
+                return;
+            }
+            if (lowerTrimmed === 'featured papers') return;
+
+            const parts = trimmed.split(';').map(part => part.trim()).filter(Boolean);
+            if (parts.length < 2) return;
+            const name = parts[0];
+            const photo = parts[1];
+            let scholarUrl = '';
+            const lastPart = parts[parts.length - 1];
+            if (lastPart && /^https?:\/\//i.test(lastPart)) {
+                scholarUrl = lastPart;
+            }
+            const bioParts = scholarUrl ? parts.slice(2, -1) : parts.slice(2);
+            const bio = bioParts.join('; ').trim();
+            members.push({
+                name,
+                photo,
+                bio,
+                scholarUrl,
+                isLead: section === 'pi',
+                isFormer: section === 'former members'
+            });
+        });
+
+        return members;
+    }
+
+    async function loadTeamMembers() {
+        try {
+            const res = await fetch('content/content.txt');
+            const text = await res.text();
+            featuredPaperKeys = parseFeaturedPapers(text);
+            const members = parseTeamContent(text);
+            const container = document.getElementById('team-members');
+            if (!container) return;
+
+            members.forEach(member => {
+                container.appendChild(buildTeamMemberCard(member, member.isLead));
+            });
+        } catch (err) {
+            // Silently fail if team content cannot be loaded
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadTeamMembers();
+        await loadPublications();
+    });
     </script>
 </body>
 </html>

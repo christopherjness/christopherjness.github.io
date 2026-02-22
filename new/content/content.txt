@@ -1,0 +1,20 @@
+PI
+Chris Ness; ChrisNess.webp; Chris is the PI; https://scholar.google.co.uk/citations?user=az8U9WYAAAAJ&hl=en
+
+Members
+Aashish Gupta; AashishGupta.webp; Aashish studies...; https://scholar.google.co.uk/citations?hl=en&user=jx3IOvYAAAAJ
+Peter Wan; PeterWan.webp; was awarded his
+Alex Dixon; AlexDixon.webp; is sponsored by...
+Andy Zeng; AndyZeng.webp; obtained his MSc...
+Xuan Li; XuanLi.webp; Xuan just didhis viva; 
+
+Former Members
+Bhanu Bhowmik; BhanuBhowmik.webp; is a physicist...; https://scholar.google.co.uk/citations?hl=en&user=OiIyaT0AAAAJ
+Alex Robertson; AlexRobertson.webp; studied...
+Yankai Li; YankaiLi.webp; Yankai lef the group a while back; https://scholar.google.co.uk/citations?hl=en&user=zYSDLm4AAAAJ
+
+Featured Papers
+ness2022physics
+ness2025nonmonotonic
+bhowmik2024scaling
+gillissen2020modeling
