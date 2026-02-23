@@ -295,6 +295,22 @@ h3 {
     color: #111;
 }
 
+.publication-covers {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+    padding-bottom: 0.25rem;
+}
+
+.publication-covers img {
+    width: 100px;
+    height: 140px;
+    object-fit: cover;
+    flex: 0 0 auto;
+    border-radius: 4px;
+}
+
 /* ─── Collaborations Section ───────────────────────────────────────────────── */
 .collaborations {
     background-color: #fff;
@@ -399,6 +415,7 @@ h3 {
 
 .member-bio p {
     margin: 0;
+    white-space: pre-line;
 }
 
 .member-scholar {
@@ -492,6 +509,13 @@ h3 {
 
     .institutions-list {
         grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    .publication-covers {
+        gap: 0.5rem;
+        margin-top: 1rem;
     }
 }
 

@@ -68,6 +68,7 @@
         <ol id="pub-list" reversed></ol>
         <button id="toggle-more-pubs">full list</button>
         <ol id="pub-list-more" reversed></ol>
+        <div class="publication-covers" id="publication-covers" aria-label="Publication covers"></div>
     </section>
 
     <section id="logos" class="logos">
@@ -244,6 +245,71 @@
     }
 
     let featuredPaperKeys = [];
+
+    function buildCoverImage(filename) {
+        const img = document.createElement('img');
+        img.src = `covers/${filename}`;
+        img.alt = `Publication cover: ${filename.replace(/\.webp$/i, '').replace(/[_-]+/g, ' ')}`;
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        return img;
+    }
+
+    function normalizeCoverNames(names) {
+        return names
+            .map(name => (name || '').trim())
+            .filter(name => /\.webp$/i.test(name))
+            .filter((name, index, arr) => arr.indexOf(name) === index)
+            .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+    }
+
+    async function getCoverNamesFromDirectory() {
+        const res = await fetch('covers/');
+        if (!res.ok) return [];
+        const html = await res.text();
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const names = Array.from(doc.querySelectorAll('a[href]'))
+            .map(a => a.getAttribute('href') || '')
+            .map(href => {
+                const cleaned = href.split('?')[0].split('#')[0];
+                const parts = cleaned.split('/').filter(Boolean);
+                return parts[parts.length - 1] || '';
+            });
+        return normalizeCoverNames(names);
+    }
+
+    async function getCoverNamesFromManifest() {
+        const res = await fetch('covers/covers.json');
+        if (!res.ok) return [];
+        const data = await res.json();
+        if (!Array.isArray(data)) return [];
+        return normalizeCoverNames(data);
+    }
+
+    async function loadPublicationCovers() {
+        const container = document.getElementById('publication-covers');
+        if (!container) return;
+
+        let coverNames = [];
+        try {
+            coverNames = await getCoverNamesFromDirectory();
+        } catch (err) {
+            coverNames = [];
+        }
+
+        if (!coverNames.length) {
+            try {
+                coverNames = await getCoverNamesFromManifest();
+            } catch (err) {
+                coverNames = [];
+            }
+        }
+
+        container.innerHTML = '';
+        coverNames.forEach(name => {
+            container.appendChild(buildCoverImage(name));
+        });
+    }
 
     function parseFeaturedPapers(text) {
         const lines = text.split(/\r?\n/);
@@ -482,6 +548,26 @@
         const lines = text.split(/\r?\n/);
         const members = [];
         let section = '';
+        let lastMember = null;
+        const urlRegex = /^https?:\/\//i;
+        const photoRegex = /\.(webp|png|jpe?g|gif|avif)$/i;
+
+        function appendContinuation(rawLine) {
+            if (!lastMember || !['pi', 'members', 'former members'].includes(section)) return;
+            const continuationParts = rawLine.split(';').map(part => part.trim()).filter(Boolean);
+            const continuationScholar = continuationParts.find(part => urlRegex.test(part));
+            if (continuationScholar) {
+                lastMember.scholarUrl = continuationScholar;
+            }
+            const continuationBio = continuationParts
+                .filter(part => !urlRegex.test(part))
+                .join('; ')
+                .replace(/;\s*$/, '')
+                .trim();
+            if (continuationBio) {
+                lastMember.bio = lastMember.bio ? `${lastMember.bio}\n${continuationBio}` : continuationBio;
+            }
+        }
 
         lines.forEach(line => {
             const trimmed = line.trim();
@@ -490,29 +576,43 @@
             
             if (['pi', 'members', 'former members'].includes(lowerTrimmed)) {
                 section = lowerTrimmed;
+                lastMember = null;
                 return;
             }
-            if (lowerTrimmed === 'featured papers') return;
-
-            const parts = trimmed.split(';').map(part => part.trim()).filter(Boolean);
-            if (parts.length < 2) return;
-            const name = parts[0];
-            const photo = parts[1];
-            let scholarUrl = '';
-            const lastPart = parts[parts.length - 1];
-            if (lastPart && /^https?:\/\//i.test(lastPart)) {
-                scholarUrl = lastPart;
+            if (lowerTrimmed === 'featured papers' || lowerTrimmed.startsWith('below this line')) {
+                section = '';
+                lastMember = null;
+                return;
             }
-            const bioParts = scholarUrl ? parts.slice(2, -1) : parts.slice(2);
-            const bio = bioParts.join('; ').trim();
-            members.push({
+
+            const parts = trimmed.split(';').map(part => part.trim());
+            const photoCandidate = (parts[1] || '').trim();
+            const isMemberLine = parts.length >= 2 && photoRegex.test(photoCandidate);
+
+            if (!isMemberLine) {
+                appendContinuation(trimmed);
+                return;
+            }
+            const name = parts[0];
+            const photo = photoCandidate;
+            const tailParts = parts.slice(2).filter(Boolean);
+            let scholarUrl = '';
+            const scholarIndex = tailParts.findIndex(part => urlRegex.test(part));
+            if (scholarIndex !== -1) {
+                scholarUrl = tailParts[scholarIndex];
+                tailParts.splice(scholarIndex, 1);
+            }
+            const bio = tailParts.join('; ').replace(/;\s*$/, '').trim();
+            const member = {
                 name,
                 photo,
                 bio,
                 scholarUrl,
                 isLead: section === 'pi',
                 isFormer: section === 'former members'
-            });
+            };
+            members.push(member);
+            lastMember = member;
         });
 
         return members;
@@ -536,6 +636,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
+        await loadPublicationCovers();
         await loadTeamMembers();
         await loadPublications();
     });
