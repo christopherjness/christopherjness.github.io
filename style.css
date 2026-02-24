@@ -582,3 +582,132 @@ h3 {
     display: block;
     vertical-align: bottom;
 }
+
+/* ─── Legacy Styles (lammps/news) ────────────────────────────────────────── */
+body.legacy-page {
+    font-size: 14px;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-weight: 300;
+    margin: 0;
+    line-height: normal;
+    color: inherit;
+    background-color: #FFFFFF;
+}
+
+body.legacy-page badge {
+    vertical-align: middle;
+    display: inline-block;
+    padding-bottom: 5px;
+}
+
+body.legacy-page paper {
+    vertical-align: middle;
+    display: inline-block;
+    margin-top: 0px;
+    width: 80%;
+    padding-bottom: 20px;
+}
+
+body.legacy-page photo {
+    vertical-align: middle;
+    display: inline-block;
+    width: 210px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+}
+
+body.legacy-page bio {
+    vertical-align: middle;
+    display: inline-block;
+    padding-bottom: 5px;
+    padding-top: 5px;
+    width: 70%;
+}
+
+body.legacy-page high {
+    font-size: 14px;
+    font-weight: 350;
+    color: #00008B;
+    display: inline;
+}
+
+body.legacy-page h1 {
+    font-size: 24px;
+    font-weight: 300;
+    color: #00008B;
+    display: inline;
+}
+
+body.legacy-page h2 {
+    font-size: 16px;
+    font-weight: 500;
+    margin: 0;
+}
+
+body.legacy-page b {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+body.legacy-page ita {
+    font-style: italic;
+}
+
+body.legacy-page a {
+    color: black;
+    text-decoration: none;
+}
+
+body.legacy-page .center-div {
+    margin: auto;
+    margin-bottom: 20px;
+    width: 75%;
+    background-color: rgba(150, 150, 190, 0.3);
+    padding: 15px;
+    padding-bottom: 5px;
+}
+
+body.legacy-page .center2-div {
+    margin: auto;
+    margin-bottom: 20px;
+    width: 75%;
+    background-color: rgba(150, 190, 170, 0.3);
+    padding: 15px;
+    padding-bottom: 5px;
+}
+
+body.legacy-page .center3-div {
+    margin: auto;
+    margin-bottom: 20px;
+    width: 75%;
+    background-color: rgba(190, 150, 150, 0.3);
+    padding: 15px;
+    padding-bottom: 5px;
+}
+
+body.legacy-page .center3a-div {
+    margin: auto;
+    margin-bottom: 20px;
+    width: 65%;
+    background-color: rgba(190, 150, 150, 0.3);
+    padding: 15px;
+    padding-bottom: 5px;
+}
+
+body.legacy-page .center4-div {
+    margin: auto;
+    margin-bottom: 10px;
+    width: 70%;
+    background-color: rgb(255, 255, 255);
+    padding: 0px;
+    padding-bottom: 5px;
+}
+
+body.legacy-page .body-div {
+    width: 100%;
+    background-color: #FFFFFF;
+    background-size: contain;
+    position: absolute;
+    top: 0;
+    bottom: 0px;
+}
