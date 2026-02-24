@@ -1,0 +1,352 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --sim-window-size: 500px;
+}
+
+html {
+  height: 100%;
+  background: linear-gradient(45deg, #d0d0d0 0%, #ffffff 40%);
+}
+
+body {
+  background: transparent;
+  color: #222222;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 8px 0;
+  min-height: 100%;
+}
+
+#canvas-wrapper {
+  display: flex;
+  flex-direction: row;
+  gap: 32px;
+  align-items: flex-start;
+  width: auto;
+}
+
+#left-column {
+  display: flex;
+  flex-direction: column;
+  width: var(--sim-window-size);
+  height: auto;
+  flex-shrink: 0;
+}
+
+body.couette #left-column {
+  width: var(--sim-window-size);
+  height: auto;
+}
+
+#canvas,
+#flowCanvas {
+  width: var(--sim-window-size);
+  height: var(--sim-window-size);
+  border: 2px solid #999;
+  background: #ffffff;
+  display: block;
+}
+
+body.couette #flowCanvas {
+  width: var(--sim-window-size);
+  height: var(--sim-window-size);
+  aspect-ratio: auto;
+}
+
+#axisLabelRow {
+  position: relative;
+  width: var(--sim-window-size);
+  height: 18px;
+  margin-top: 4px;
+}
+
+#axisLabelRow span {
+  position: absolute;
+  transform: translateX(-50%);
+  color: #000000;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+#right-column {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 300px;
+  flex-shrink: 0;
+}
+
+#controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+#drawHint,
+#physicsSummary {
+  font-size: 11px;
+  color: #444444;
+  line-height: 1.35;
+}
+
+#drawHint {
+  font-weight: 600;
+}
+
+body.couette #controls {
+  gap: 10px;
+}
+
+body.couette #drawHint {
+  font-weight: 500;
+  color: #555555;
+  border: 1px solid #c8c8c8;
+  background: #ffffff;
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+
+#physicsSummary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid #c8c8c8;
+  background: #ffffff;
+  border-radius: 4px;
+  padding: 8px;
+  max-height: 305px;
+  overflow: auto;
+}
+
+body.couette #physicsSummary {
+  font-size: 10.5px;
+  line-height: 1.3;
+}
+
+body.couette #physicsSummary mjx-container {
+  font-size: 94% !important;
+}
+
+#physicsSummary .equation {
+  margin: 0;
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.control-row label {
+  width: 94px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #555555;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.control-row input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  accent-color: #2a6fcc;
+}
+
+.control-row span {
+  width: 50px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: #333333;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.button-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+body.couette .button-row {
+  grid-template-columns: 1fr;
+  width: 120px;
+}
+
+body.couette .button-row button {
+  width: 100%;
+}
+
+button {
+  border: 1px solid #b8b8b8;
+  background: #ffffff;
+  color: #222222;
+  border-radius: 4px;
+  font-size: 11px;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #f3f3f3;
+}
+
+#plot-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.plot-wrap {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.plot-title {
+  font-size: 11px;
+  color: #555555;
+  margin: 0 0 4px;
+}
+
+#plotCanvas,
+#phiCanvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 180px;
+  background: #ffffff;
+}
+
+@media (max-width: 860px) {
+  body {
+    padding: 12px 8px;
+  }
+
+  #canvas-wrapper {
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
+  }
+
+  #left-column {
+    width: 100%;
+    height: auto;
+  }
+
+  body.couette #left-column {
+    width: 100%;
+    height: auto;
+  }
+
+  #canvas,
+  #flowCanvas {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+  }
+
+  #axisLabelRow {
+    width: 100%;
+  }
+
+  #right-column {
+    width: 100%;
+  }
+
+  .control-row label {
+    width: auto;
+  }
+
+  .control-row span {
+    width: auto;
+  }
+
+  #plot-column {
+    flex-direction: row;
+    gap: 12px;
+  }
+
+  #plot-column > * {
+    flex: 1;
+    min-width: 0;
+  }
+
+  #plotCanvas,
+  #phiCanvas {
+    max-height: none;
+    height: auto;
+  }
+}
+
+body.launcher-page .launcher {
+  width: min(860px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+body.launcher-page .launcher h1 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #1f1f1f;
+}
+
+body.launcher-page .launcher p {
+  color: #444444;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+body.launcher-page .sim-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+body.launcher-page .sim-card {
+  border: 1px solid #b8b8b8;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+body.launcher-page .sim-card h2 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f1f1f;
+}
+
+body.launcher-page .sim-card a {
+  display: inline-block;
+  width: fit-content;
+  padding: 6px 8px;
+  border: 1px solid #b8b8b8;
+  border-radius: 4px;
+  text-decoration: none;
+  color: #222222;
+  background: #ffffff;
+  font-size: 11px;
+}
+
+body.launcher-page .sim-card a:hover {
+  background: #f3f3f3;
+}

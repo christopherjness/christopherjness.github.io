@@ -19,21 +19,22 @@
 
     <section id="expertise" class="expertise">
         <h2>our expertise</h2>
-        <p>We build bespoke modelling tools designed to answer fundamental questions about the dynamics of particulate systems. specialise in advanced computational models for physical systems, leveraging state-of-the-art algorithms and domain knowledge to produce accurate and efficient simulations.</p>
+        <p>We build bespoke modelling tools designed to answer fundamental questions about the dynamics of particulate systems. Our work is at the interface of soft matter physics and chemical engineering.</p>
         <div class="expertise-grid">
             <div class="expertise-item">
                 <h3>Suspension rheology</h3>
-                <p>Linking micromechanics to bulk flow <i>via</i> particle-based simulation.</p>
+                <p>Linking micromechanics to bulk flow behaviour <i>via</i> particle-based simulation.</p>
                 <a href="#" onclick="openSimulator('simulators/shear_simulator.html'); return false;" class="btn primary">rheology simulator</a>
             </div>
             <div class="expertise-item">
                 <h3>Colloidal gelation</h3>
-                <p>Description of the pertise.</p>
+                <p>Understanding network formation and percolation in systems of attractive particles.</p>
                 <a href="#" onclick="openSimulator('simulators/gelation_simulator.html'); return false;" class="btn primary">gelation simulator</a>
             </div>
             <div class="expertise-item">
-                <h3>Constitutive modelling</h3>
-                <p>Encoding microscopic details into continuum models for large-scale simulation.</p>
+                <h3>Continuum modelling</h3>
+                <p>Encoding microscopic details into constitutive models for large-scale simulation.</p>
+                <a href="#" onclick="openSimulator('simulators/couette_simulator.html'); return false;" class="btn primary">couette simulator</a>
             </div>
             <div class="expertise-item">
                 <h3>Applications</h3>
@@ -51,7 +52,7 @@
 
     <section id="collaborations" class="collaborations">
         <h2>collaborations</h2>
-        <p>Our work is strengthened through partnerships with industry leaders, academic institutions, and research consortia. Together we tackle complex challenges.</p>
+        <p>We have collaborated and published papers with scientists at the following institutions:</p>
         <ul class="institutions-list" id="institutions-list"></ul>
         <a href="mailto:chris.ness@ed.ac.uk" class="join-cta">
             Join us as a student or collaborator
@@ -87,20 +88,59 @@
     </footer>
 
     <script>
+    function resizeSimulatorFrame() {
+        const frame = document.getElementById('simulator-frame');
+        if (!frame || !frame.contentWindow) return;
+
+        try {
+            const doc = frame.contentDocument || frame.contentWindow.document;
+            if (!doc) return;
+
+            frame.style.height = '0px';
+            const body = doc.body;
+            const html = doc.documentElement;
+            const contentHeight = Math.max(
+                body ? body.scrollHeight : 0,
+                html ? html.scrollHeight : 0,
+                body && body.firstElementChild ? body.firstElementChild.scrollHeight : 0
+            );
+
+            if (contentHeight > 0) {
+                frame.style.height = `${Math.min(contentHeight + 12, 1200)}px`;
+            } else {
+                frame.style.height = '600px';
+            }
+        } catch (e) {
+            frame.style.height = '600px';
+        }
+    }
+
     function openSimulator(url) {
         const panel = document.getElementById('simulator-panel');
         const frame = document.getElementById('simulator-frame');
+
+        frame.onload = () => {
+            resizeSimulatorFrame();
+            setTimeout(resizeSimulatorFrame, 120);
+            setTimeout(resizeSimulatorFrame, 450);
+            setTimeout(resizeSimulatorFrame, 1200);
+        };
+
         frame.src = url;
-        frame.style.height = '546px';
+        frame.style.height = '600px';
         panel.style.display = 'block';
         panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function closeSimulator() {
         const panel = document.getElementById('simulator-panel');
+        const frame = panel.querySelector('#simulator-frame');
         panel.style.display = 'none';
-        panel.querySelector('#simulator-frame').src = '';
+        frame.onload = null;
+        frame.src = '';
     }
+
+    window.addEventListener('resize', resizeSimulatorFrame);
 
     // Spotlight effect for hero section
     const hero = document.querySelector('.hero');
