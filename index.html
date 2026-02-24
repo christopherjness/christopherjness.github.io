@@ -534,7 +534,11 @@
         const card = document.createElement('div');
         card.className = isLead ? 'team-member team-member-lead' : 'team-member';
 
+        const photoWrap = document.createElement('div');
+        photoWrap.className = 'member-photo-wrap';
+
         const img = document.createElement('img');
+        img.className = 'member-photo';
         const photoPath = member.photo.startsWith('photos/') ? member.photo : `photos/${member.photo}`;
         img.src = photoPath;
         img.alt = member.name;
@@ -548,11 +552,8 @@
         bio.className = 'member-bio';
 
         if (member.scholarUrl) {
-            const scholarRow = document.createElement('div');
-            scholarRow.className = 'member-scholar-row';
-
             const scholarLink = document.createElement('a');
-            scholarLink.className = 'member-scholar';
+            scholarLink.className = 'member-scholar member-scholar-overlay';
             scholarLink.href = member.scholarUrl;
             scholarLink.target = '_blank';
             scholarLink.rel = 'noopener noreferrer';
@@ -564,9 +565,10 @@
             scholarIcon.decoding = 'async';
 
             scholarLink.appendChild(scholarIcon);
-            scholarRow.appendChild(scholarLink);
-            bio.appendChild(scholarRow);
+            photoWrap.appendChild(scholarLink);
         }
+
+        photoWrap.appendChild(img);
 
         const desc = document.createElement('p');
         const nameStrong = document.createElement('strong');
@@ -582,7 +584,7 @@
         bio.appendChild(desc);
         bio.appendChild(pubs);
 
-        card.appendChild(img);
+        card.appendChild(photoWrap);
         card.appendChild(bio);
 
         return card;
