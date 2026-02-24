@@ -206,6 +206,24 @@ h3 {
     opacity: 0.8;
 }
 
+.footer-subtle-links {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    opacity: 0.62;
+}
+
+.footer-subtle-links a {
+    color: #fff;
+    text-decoration: none;
+}
+
+.footer-subtle-links a:hover {
+    opacity: 0.95;
+}
+
 /* ─── Expertise Section ────────────────────────────────────────────────────── */
 .expertise {
     background: linear-gradient(135deg, #fafafa 0%, #f0f7fc 25%, #f9f4fa 75%, #f0faf7 100%);
@@ -656,6 +674,11 @@ body.legacy-page ita {
 body.legacy-page a {
     color: black;
     text-decoration: none;
+}
+
+body.legacy-page ol,
+body.legacy-page ul {
+    padding-left: 2rem;
 }
 
 body.legacy-page .center-div {
