@@ -130,14 +130,20 @@
       return { mags, N };
     }
 
-    function heatColor(v, d, px) {
-      let r, g, b;
-      if (v < 0.25)      { r = 0;               g = 0;               b = v*4*255|0;         }
-      else if (v < 0.5)  { const t=(v-0.25)*4;  r = 0;               g = t*255|0;           b = 255;              }
-      else if (v < 0.75) { const t=(v-0.5)*4;   r = t*255|0;         g = 255;               b = (1-t)*255|0;      }
-      else               { const t=(v-0.75)*4;  r = 255;             g = 255;               b = t*255|0;          }
-      d[px]=r; d[px+1]=g; d[px+2]=b; d[px+3]=255;
-    }
+    // Precomputed heat colormap LUT (Uint32 RGBA little-endian, index 0–255)
+    const heatPx32 = (() => {
+      const lut = new Uint32Array(256);
+      for (let idx = 0; idx < 256; idx++) {
+        const v = idx / 255;
+        let r, g, b;
+        if (v < 0.25)      { r=0; g=0; b=v*4*255|0; }
+        else if (v < 0.5)  { const t=(v-0.25)*4; r=0; g=t*255|0; b=255; }
+        else if (v < 0.75) { const t=(v-0.5)*4; r=t*255|0; g=255; b=(1-t)*255|0; }
+        else               { const t=(v-0.75)*4; r=255; g=255; b=t*255|0; }
+        lut[idx] = (255<<24) | (b<<16) | (g<<8) | r;
+      }
+      return lut;
+    })();
 
     async function start() {
       try {
@@ -179,15 +185,32 @@
         const MIN_FREQ = 0;
         const MAX_FREQ = 1000;
 
+        // Precomputed bar colour strings (avoid template literals each frame)
+        const barColorStr = (() => {
+          const lut = new Array(256);
+          for (let idx = 0; idx < 256; idx++) {
+            const v = idx / 255;
+            const h = 220 - v * 180, s = 0.65, l = (15 + v * 35) / 100;
+            const a = s * Math.min(l, 1 - l);
+            const f = n => { const k = (n + h / 30) % 12; return l - a * Math.max(-1, Math.min(k - 3, Math.min(9 - k, 1))); };
+            lut[idx] = `rgb(${Math.round(f(0)*255)},${Math.round(f(8)*255)},${Math.round(f(4)*255)})`;
+          }
+          return lut;
+        })();
+
+        let currentDpr = window.devicePixelRatio || 1;
         let history = [];
+        const runningSum = new Float32Array(N_POINTS);
         let SPECT_W, SPECT_H, spectImgData, spectPx32, spectIdxAt;
         let lastSpectT = 0;
         let lastFrameT = 0;
+        let fadeGrad = null, cachedFadePlotH = -1, cachedFadeCH = -1;
 
         function resizeCanvas() {
+          const dpr  = window.devicePixelRatio || 1;
           const rect = combCanvas.getBoundingClientRect();
-          const newW = Math.round(rect.width);
-          const newH = Math.round(rect.height);
+          const newW = Math.round(rect.width  * dpr);
+          const newH = Math.round(rect.height * dpr);
           if (newW === SPECT_W && newH === SPECT_H) return;
 
           // Scale existing spectrogram into new dimensions
@@ -203,6 +226,8 @@
           combCanvas.height = newH;
           SPECT_W = newW;
           SPECT_H = newH;
+          currentDpr = dpr;
+          combCtx.scale(dpr, dpr);  // draw in CSS px; canvas stores at physical px
 
           if (prevCanvas) {
             const tmp = document.createElement('canvas');
@@ -244,14 +269,15 @@
             snapBinIdx[i] = b;
           }
 
+          for (let i = 0; i < N_POINTS; i++) runningSum[i] += snapshot[i];
           history.push(snapshot);
-          while (history.length > MAX_HISTORY) history.shift();
-
-          const avgArray = new Float32Array(N_POINTS);
-          for (const frame of history) {
-            for (let i = 0; i < N_POINTS; i++) avgArray[i] += frame[i];
+          if (history.length > MAX_HISTORY) {
+            const evicted = history.shift();
+            for (let i = 0; i < N_POINTS; i++) runningSum[i] -= evicted[i];
           }
-          for (let i = 0; i < N_POINTS; i++) avgArray[i] /= history.length;
+          const histLen = history.length;
+          const avgArray = new Float32Array(N_POINTS);
+          for (let i = 0; i < N_POINTS; i++) avgArray[i] = runningSum[i] / histLen;
 
           const peaks = [];
           for (let i = 1; i < N_POINTS - 1; i++) {
@@ -267,19 +293,18 @@
           if (newRows > 0) {
             const keepRows = SPECT_H - newRows;
             if (keepRows > 0) spectPx32.copyWithin(0, newRows * SPECT_W);
-            const sd = spectImgData.data;
             for (let row = keepRows; row < SPECT_H; row++) {
-              const base = row * SPECT_W * 4;
+              const rowBase = row * SPECT_W;
               for (let x = 0; x < SPECT_W; x++) {
-                heatColor(avgArray[spectIdxAt[x]] / 255, sd, base + x * 4);
+                spectPx32[rowBase + x] = heatPx32[avgArray[spectIdxAt[x]] | 0];
               }
             }
             lastSpectT += newRows / rowsPerSec;
           }
 
           // ── Render ────────────────────────────────────────────────────────
-          const CW       = combCanvas.width;
-          const CH       = combCanvas.height;
+          const CW       = combCanvas.width  / currentDpr;
+          const CH       = combCanvas.height / currentDpr;
           const LABEL_H  = 38;
           const FADE_H   = 40;
           const plotH    = CH - LABEL_H;
@@ -292,7 +317,7 @@
           for (let i = 0; i < N_POINTS; i++) {
             const v    = snapshot[i] / 255;
             const barH = v * plotH;
-            combCtx.fillStyle = `hsla(${220 - v * 180}, 65%, ${15 + v * 35}%, 1)`;
+            combCtx.fillStyle = barColorStr[snapshot[i]];
             combCtx.fillRect(i * barW, plotH - barH, barW, barH);
           }
 
@@ -310,16 +335,20 @@
           combCtx.stroke();
           combCtx.shadowBlur  = 0;
 
-          // Gradient fade into label strip
-          const fadeGrad = combCtx.createLinearGradient(0, plotH - FADE_H, 0, CH);
-          fadeGrad.addColorStop(0,   'rgba(0,0,0,0)');
-          fadeGrad.addColorStop(0.5, 'rgba(0,0,0,0.85)');
-          fadeGrad.addColorStop(1,   'rgba(0,0,0,1)');
+          // Gradient fade into label strip (cached, recreated only on resize)
+          if (plotH !== cachedFadePlotH || CH !== cachedFadeCH) {
+            fadeGrad = combCtx.createLinearGradient(0, plotH - FADE_H, 0, CH);
+            fadeGrad.addColorStop(0,   'rgba(0,0,0,0)');
+            fadeGrad.addColorStop(0.5, 'rgba(0,0,0,0.85)');
+            fadeGrad.addColorStop(1,   'rgba(0,0,0,1)');
+            cachedFadePlotH = plotH;
+            cachedFadeCH    = CH;
+          }
           combCtx.fillStyle = fadeGrad;
           combCtx.fillRect(0, plotH - FADE_H, CW, LABEL_H + FADE_H);
 
           // Peak labels — pill style
-          combCtx.font = `${fontSize + 1}px system-ui, sans-serif`;
+          combCtx.font = `${fontSize}px system-ui, sans-serif`;
           for (let p = 0; p < Math.min(3, peaks.length); p++) {
             const i     = peaks[p];
             const freq  = Math.round(MIN_FREQ + snapBinIdx[i] / (N - 1) * (MAX_FREQ - MIN_FREQ));
