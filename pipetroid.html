@@ -6,33 +6,46 @@
   <title>Pipetroid</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; background: #080808; overflow: hidden; display: flex; justify-content: center; padding: 60px 40px; }
-    canvas { display: block; width: 100%; max-width: 900px; height: 100%; }
+    html, body { width: 100%; height: 100%; background: radial-gradient(ellipse at center, #161820 0%, #04040a 100%); overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    #frame {
+      width: min(500px, 100vw, 100vh);
+      height: min(500px, 100vw, 100vh);
+      padding: 16px;
+      box-sizing: border-box;
+      border: 1px solid rgba(180,180,180,0.13);
+      border-radius: 10px;
+      background: #000;
+    }
+    canvas { display: block; width: 100%; height: 100%; border-radius: 4px; }
   </style>
 </head>
 <body>
-  <canvas id="combined"></canvas>
+  <div id="frame">
+    <canvas id="combined"></canvas>
+  </div>
 
   <script>
     const combCanvas = document.getElementById('combined');
     const combCtx    = combCanvas.getContext('2d');
 
-    const N_POINTS   = 200;
-    const N_ZOOM_MAX = 8192;
-    const RING       = 1 << 18;
-    const RING_MASK  = RING - 1;
-    const ring       = new Float32Array(RING);
+    const N_POINTS     = 200;
+    const N_ZOOM_MAX   = 8192;
+    const RING         = 1 << 18;
+    const RING_MASK    = RING - 1;
+    const ring         = new Float32Array(RING);
     let ringHead = 0, ringFill = 0;
 
-    const AVG_SECS    = 5;
-    const SPECT_SECS  = 30;
-    const MAX_HISTORY = Math.round(AVG_SECS * 60);
+    const AVG_SECS     = 1;
+    const SPECT_SECS   = 30;
+    const MAX_HISTORY  = Math.round(AVG_SECS * 60);
+    const TARGET_FPS   = 30;
+    const FRAME_MS     = 1000 / TARGET_FPS;
 
     function fmtFreq(hz) {
       return hz >= 1000 ? `${(hz / 1000).toFixed(hz % 1000 ? 1 : 0)}k` : `${hz}`;
     }
 
-    // Cooley-Tukey radix-2 in-place FFT (N must be a power of 2)
+    // Cooley-Tukey radix-2 in-place FFT
     function fft(re, im) {
       const n = re.length;
       for (let i = 1, j = 0; i < n; i++) {
@@ -45,17 +58,17 @@
         }
       }
       for (let len = 2; len <= n; len <<= 1) {
-        const ang = -2 * Math.PI / len;
-        const wRe = Math.cos(ang), wIm = Math.sin(ang);
+        const ang  = -2 * Math.PI / len;
+        const wRe  = Math.cos(ang), wIm = Math.sin(ang);
         const half = len >> 1;
         for (let i = 0; i < n; i += len) {
           let cRe = 1, cIm = 0;
           for (let j = 0; j < half; j++) {
-            const uRe = re[i+j],        uIm = im[i+j];
-            const vRe = re[i+j+half]*cRe - im[i+j+half]*cIm;
-            const vIm = re[i+j+half]*cIm + im[i+j+half]*cRe;
-            re[i+j]      = uRe + vRe;  im[i+j]      = uIm + vIm;
-            re[i+j+half] = uRe - vRe;  im[i+j+half] = uIm - vIm;
+            const uRe = re[i+j],          uIm = im[i+j];
+            const vRe = re[i+j+half]*cRe  - im[i+j+half]*cIm;
+            const vIm = re[i+j+half]*cIm  + im[i+j+half]*cRe;
+            re[i+j]       = uRe + vRe;  im[i+j]       = uIm + vIm;
+            re[i+j+half]  = uRe - vRe;  im[i+j+half]  = uIm - vIm;
             const nRe = cRe*wRe - cIm*wIm;
             cIm = cRe*wIm + cIm*wRe;  cRe = nRe;
           }
@@ -71,20 +84,20 @@
     function computeZoomFFT(minF, maxF, Fs) {
       const BW = maxF - minF;
       const fc = (minF + maxF) / 2;
-      const D = Math.max(1, Math.floor(Fs / BW));
+      const D  = Math.max(1, Math.floor(Fs / BW));
       let N = 1;
       while ((N << 1) * D <= ringFill && (N << 1) <= N_ZOOM_MAX) N <<= 1;
       if (N < 4) return null;
       const K = N * D;
 
-      const raw = new Float32Array(K);
+      const raw   = new Float32Array(K);
       const start = (ringHead - K + RING) & RING_MASK;
       const end1  = Math.min(K, RING - start);
       raw.set(ring.subarray(start, start + end1));
       if (end1 < K) raw.set(ring.subarray(0, K - end1), end1);
 
-      const re = new Float32Array(N);
-      const im = new Float32Array(N);
+      const re   = new Float32Array(N);
+      const im   = new Float32Array(N);
       const dpRe = Math.cos(-2 * Math.PI * fc / Fs);
       const dpIm = Math.sin(-2 * Math.PI * fc / Fs);
       let phRe = 1, phIm = 0;
@@ -92,25 +105,21 @@
         let sRe = 0, sIm = 0;
         for (let d = 0; d < D; d++) {
           const x = raw[i * D + d];
-          sRe += x * phRe;
-          sIm += x * phIm;
+          sRe += x * phRe;  sIm += x * phIm;
           const nRe = phRe * dpRe - phIm * dpIm;
-          phIm = phRe * dpIm + phIm * dpRe;
-          phRe = nRe;
+          phIm = phRe * dpIm + phIm * dpRe;  phRe = nRe;
         }
-        re[i] = sRe / D;
-        im[i] = sIm / D;
+        re[i] = sRe / D;  im[i] = sIm / D;
       }
 
       for (let i = 0; i < N; i++) {
         const w = 0.5 * (1 - Math.cos(2 * Math.PI * i / (N - 1)));
-        re[i] *= w;
-        im[i] *= w;
+        re[i] *= w;  im[i] *= w;
       }
 
       fft(re, im);
 
-      const mag = new Float32Array(N);
+      const mag  = new Float32Array(N);
       for (let i = 0; i < N; i++) mag[i] = Math.sqrt(re[i]*re[i] + im[i]*im[i]);
 
       const mags = new Uint8Array(N);
@@ -123,19 +132,11 @@
 
     function heatColor(v, d, px) {
       let r, g, b;
-      if (v < 0.25) {
-        r = 0; g = 0; b = v * 4 * 255 | 0;
-      } else if (v < 0.5) {
-        const t = (v - 0.25) * 4;
-        r = 0; g = t * 255 | 0; b = 255;
-      } else if (v < 0.75) {
-        const t = (v - 0.5) * 4;
-        r = t * 255 | 0; g = 255; b = (1 - t) * 255 | 0;
-      } else {
-        const t = (v - 0.75) * 4;
-        r = 255; g = 255; b = t * 255 | 0;
-      }
-      d[px] = r; d[px+1] = g; d[px+2] = b; d[px+3] = 255;
+      if (v < 0.25)      { r = 0;               g = 0;               b = v*4*255|0;         }
+      else if (v < 0.5)  { const t=(v-0.25)*4;  r = 0;               g = t*255|0;           b = 255;              }
+      else if (v < 0.75) { const t=(v-0.5)*4;   r = t*255|0;         g = 255;               b = (1-t)*255|0;      }
+      else               { const t=(v-0.75)*4;  r = 255;             g = 255;               b = t*255|0;          }
+      d[px]=r; d[px+1]=g; d[px+2]=b; d[px+3]=255;
     }
 
     async function start() {
@@ -158,9 +159,7 @@
           }
           registerProcessor('sample-collector', SampleCollector);
         `;
-        const blobUrl = URL.createObjectURL(
-          new Blob([workletSrc], { type: 'application/javascript' })
-        );
+        const blobUrl = URL.createObjectURL(new Blob([workletSrc], { type: 'application/javascript' }));
         await audioCtx.audioWorklet.addModule(blobUrl);
         URL.revokeObjectURL(blobUrl);
 
@@ -176,23 +175,47 @@
         source.connect(workletNode);
         workletNode.connect(audioCtx.destination);
 
-        const Fs = audioCtx.sampleRate;
+        const Fs       = audioCtx.sampleRate;
         const MIN_FREQ = 0;
         const MAX_FREQ = 1000;
 
         let history = [];
-        let spectFrames = [];
         let SPECT_W, SPECT_H, spectImgData, spectPx32, spectIdxAt;
+        let lastSpectT = 0;
+        let lastFrameT = 0;
 
         function resizeCanvas() {
           const rect = combCanvas.getBoundingClientRect();
-          combCanvas.width  = Math.round(rect.width);
-          combCanvas.height = Math.round(rect.height);
-          SPECT_W = combCanvas.width;
-          SPECT_H = combCanvas.height;
-          spectImgData = combCtx.createImageData(SPECT_W, SPECT_H);
-          spectPx32    = new Uint32Array(spectImgData.data.buffer);
-          spectIdxAt   = new Int32Array(SPECT_W);
+          const newW = Math.round(rect.width);
+          const newH = Math.round(rect.height);
+          if (newW === SPECT_W && newH === SPECT_H) return;
+
+          // Scale existing spectrogram into new dimensions
+          let prevCanvas = null;
+          if (spectImgData) {
+            prevCanvas = document.createElement('canvas');
+            prevCanvas.width  = SPECT_W;
+            prevCanvas.height = SPECT_H;
+            prevCanvas.getContext('2d').putImageData(spectImgData, 0, 0);
+          }
+
+          combCanvas.width  = newW;
+          combCanvas.height = newH;
+          SPECT_W = newW;
+          SPECT_H = newH;
+
+          if (prevCanvas) {
+            const tmp = document.createElement('canvas');
+            tmp.width  = SPECT_W;
+            tmp.height = SPECT_H;
+            tmp.getContext('2d').drawImage(prevCanvas, 0, 0, SPECT_W, SPECT_H);
+            spectImgData = tmp.getContext('2d').getImageData(0, 0, SPECT_W, SPECT_H);
+          } else {
+            spectImgData = combCtx.createImageData(SPECT_W, SPECT_H);
+            new Uint32Array(spectImgData.data.buffer).fill(0xFF000000);
+          }
+          spectPx32  = new Uint32Array(spectImgData.data.buffer);
+          spectIdxAt = new Int32Array(SPECT_W);
           for (let x = 0; x < SPECT_W; x++) {
             spectIdxAt[x] = Math.min(N_POINTS - 1, Math.round(x / (SPECT_W - 1) * (N_POINTS - 1)));
           }
@@ -201,10 +224,12 @@
         new ResizeObserver(resizeCanvas).observe(combCanvas);
         resizeCanvas();
 
-        function draw() {
+        function draw(ts) {
           requestAnimationFrame(draw);
+          if (ts - lastFrameT < FRAME_MS) return;
+          lastFrameT = ts;
 
-          const now = performance.now() / 1000;
+          const now = ts / 1000;
 
           const result = computeZoomFFT(MIN_FREQ, MAX_FREQ, Fs);
           if (!result) return;
@@ -214,7 +239,7 @@
           const snapshot   = new Uint8Array(N_POINTS);
           const snapBinIdx = new Uint16Array(N_POINTS);
           for (let i = 0; i < N_POINTS; i++) {
-            const b = Math.min(N - 1, Math.round(i / (N_POINTS - 1) * (N - 1)));
+            const b       = Math.min(N - 1, Math.round(i / (N_POINTS - 1) * (N - 1)));
             snapshot[i]   = mags[b];
             snapBinIdx[i] = b;
           }
@@ -230,86 +255,112 @@
 
           const peaks = [];
           for (let i = 1; i < N_POINTS - 1; i++) {
-            if (avgArray[i] > 20 && avgArray[i] >= avgArray[i-1] && avgArray[i] >= avgArray[i+1]) {
+            if (avgArray[i] > 20 && avgArray[i] >= avgArray[i-1] && avgArray[i] >= avgArray[i+1])
               peaks.push(i);
-            }
           }
           peaks.sort((a, b) => avgArray[b] - avgArray[a]);
 
-          spectFrames.push({ time: now, data: Uint8Array.from(avgArray) });
-          const cutoff = now - SPECT_SECS;
-          while (spectFrames.length > 0 && spectFrames[0].time < cutoff) spectFrames.shift();
-
-          spectPx32.fill(0xFF000000);
-          const d = spectImgData.data;
-          for (const frame of spectFrames) {
-            const age = now - frame.time;
-            const y   = Math.round((1 - age / SPECT_SECS) * (SPECT_H - 1));
-            if (y < 0 || y >= SPECT_H) continue;
-            const rowBase = y * SPECT_W * 4;
-            for (let x = 0; x < SPECT_W; x++) {
-              heatColor(frame.data[spectIdxAt[x]] / 255, d, rowBase + x * 4);
+          // ── Scrolling spectrogram — O(W) per frame instead of O(W×frames) ──
+          if (lastSpectT === 0) lastSpectT = now;
+          const rowsPerSec = SPECT_H / SPECT_SECS;
+          const newRows    = Math.min(SPECT_H, Math.floor((now - lastSpectT) * rowsPerSec));
+          if (newRows > 0) {
+            const keepRows = SPECT_H - newRows;
+            if (keepRows > 0) spectPx32.copyWithin(0, newRows * SPECT_W);
+            const sd = spectImgData.data;
+            for (let row = keepRows; row < SPECT_H; row++) {
+              const base = row * SPECT_W * 4;
+              for (let x = 0; x < SPECT_W; x++) {
+                heatColor(avgArray[spectIdxAt[x]] / 255, sd, base + x * 4);
+              }
             }
+            lastSpectT += newRows / rowsPerSec;
           }
 
-          const CW = combCanvas.width;
-          const CH = combCanvas.height;
-          const LABEL_H   = 26;
-          const combPlotH = CH - LABEL_H;
-          const combBarW  = CW / N_POINTS;
+          // ── Render ────────────────────────────────────────────────────────
+          const CW       = combCanvas.width;
+          const CH       = combCanvas.height;
+          const LABEL_H  = 38;
+          const FADE_H   = 40;
+          const plotH    = CH - LABEL_H;
+          const barW     = CW / N_POINTS;
+          const fontSize = 10;
 
           combCtx.putImageData(spectImgData, 0, 0);
 
-          combCtx.fillStyle = '#0c0c0c';
-          combCtx.fillRect(0, combPlotH, CW, LABEL_H);
-
+          // Spectrum bars
           for (let i = 0; i < N_POINTS; i++) {
             const v    = snapshot[i] / 255;
-            const barH = v * combPlotH;
-            combCtx.fillStyle = `hsla(${220 - v * 180}, 70%, ${18 + v * 38}%, 0.5)`;
-            combCtx.fillRect(i * combBarW, combPlotH - barH, combBarW, barH);
+            const barH = v * plotH;
+            combCtx.fillStyle = `hsla(${220 - v * 180}, 65%, ${15 + v * 35}%, 1)`;
+            combCtx.fillRect(i * barW, plotH - barH, barW, barH);
           }
 
+          // Average line with glow
           combCtx.beginPath();
-          combCtx.strokeStyle = 'rgba(255, 210, 60, 0.85)';
-          combCtx.lineWidth = 1.5;
           for (let i = 0; i < N_POINTS; i++) {
-            const x = i * combBarW + combBarW / 2;
-            const y = combPlotH - (avgArray[i] / 255) * combPlotH;
+            const x = i * barW + barW / 2;
+            const y = plotH - (avgArray[i] / 255) * plotH;
             i === 0 ? combCtx.moveTo(x, y) : combCtx.lineTo(x, y);
           }
+          combCtx.shadowColor = 'rgba(255,200,40,0.55)';
+          combCtx.shadowBlur  = 10;
+          combCtx.strokeStyle = 'rgba(255,215,60,0.9)';
+          combCtx.lineWidth   = 1.5;
           combCtx.stroke();
+          combCtx.shadowBlur  = 0;
 
-          combCtx.font = '10px system-ui, sans-serif';
-          combCtx.shadowColor = 'rgba(0,0,0,0.95)';
-          combCtx.shadowBlur = 5;
-          combCtx.fillStyle = 'rgba(180,210,255,0.9)';
+          // Gradient fade into label strip
+          const fadeGrad = combCtx.createLinearGradient(0, plotH - FADE_H, 0, CH);
+          fadeGrad.addColorStop(0,   'rgba(0,0,0,0)');
+          fadeGrad.addColorStop(0.5, 'rgba(0,0,0,0.85)');
+          fadeGrad.addColorStop(1,   'rgba(0,0,0,1)');
+          combCtx.fillStyle = fadeGrad;
+          combCtx.fillRect(0, plotH - FADE_H, CW, LABEL_H + FADE_H);
+
+          // Peak labels — pill style
+          combCtx.font = `${fontSize + 1}px system-ui, sans-serif`;
           for (let p = 0; p < Math.min(3, peaks.length); p++) {
             const i     = peaks[p];
             const freq  = Math.round(MIN_FREQ + snapBinIdx[i] / (N - 1) * (MAX_FREQ - MIN_FREQ));
-            const x     = i * combBarW + combBarW / 2;
-            const y     = combPlotH - (avgArray[i] / 255) * combPlotH;
+            const x     = i * barW + barW / 2;
+            const y     = plotH - (avgArray[i] / 255) * plotH;
             const label = fmtFreq(freq);
             const tw    = combCtx.measureText(label).width;
-            combCtx.fillText(label, Math.max(1, Math.min(CW - tw - 1, x - tw / 2)), Math.max(11, y - 5));
+            const lx    = Math.max(tw / 2 + 6, Math.min(CW - tw / 2 - 6, x));
+            const ly    = Math.max(fontSize + 4, y - 10);
+            const pad   = 5;
+            combCtx.fillStyle = 'rgba(0,0,0,0.55)';
+            combCtx.beginPath();
+            combCtx.roundRect(lx - tw / 2 - pad, ly - fontSize - 2, tw + pad * 2, fontSize + 6, 4);
+            combCtx.fill();
+            combCtx.fillStyle = 'rgba(180,215,255,0.95)';
+            combCtx.fillText(label, lx - tw / 2, ly);
           }
-          combCtx.shadowBlur = 0;
 
-          combCtx.font = '10px system-ui, sans-serif';
+          // X-axis tick marks and frequency numbers
+          combCtx.font = `${fontSize}px system-ui, sans-serif`;
           for (let t = 0; t <= 5; t++) {
             const freq  = Math.round(MIN_FREQ + (MAX_FREQ - MIN_FREQ) * t / 5);
             const px    = (t / 5) * CW;
-            combCtx.strokeStyle = 'rgba(255,255,255,0.12)';
-            combCtx.lineWidth = 1;
-            combCtx.beginPath(); combCtx.moveTo(px, combPlotH); combCtx.lineTo(px, combPlotH + 4); combCtx.stroke();
+            combCtx.strokeStyle = 'rgba(255,255,255,0.4)';
+            combCtx.lineWidth   = 1;
+            combCtx.beginPath(); combCtx.moveTo(px, plotH); combCtx.lineTo(px, plotH + 4); combCtx.stroke();
             const label = String(freq);
             const tw    = combCtx.measureText(label).width;
-            combCtx.fillStyle = '#555';
-            combCtx.fillText(label, Math.max(1, Math.min(px - tw / 2, CW - tw - 2)), combPlotH + 16);
+            combCtx.fillStyle = 'rgba(255,255,255,0.85)';
+            combCtx.fillText(label, Math.max(1, Math.min(px - tw / 2, CW - tw - 2)), plotH + 16);
           }
+
+          // X-axis title
+          combCtx.font = `${fontSize}px system-ui, sans-serif`;
+          combCtx.fillStyle = 'rgba(255,255,255,0.85)';
+          const title = 'Frequency [Hz]';
+          const titleW = combCtx.measureText(title).width;
+          combCtx.fillText(title, (CW - titleW) / 2, CH - 4);
         }
 
-        draw();
+        requestAnimationFrame(draw);
 
       } catch (e) {
         alert(`Microphone error: ${e.message}`);
