@@ -38,6 +38,57 @@
       #plots  { flex-direction: column; align-items: center; }
       canvas  { width: min(500px, calc(100vw - 40px)); height: min(500px, calc(100vw - 40px)); }
     }
+    #controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #666;
+      font-size: 0.85rem;
+    }
+    .freq-val { color: #999; min-width: 4ch; }
+    .range-wrap {
+      position: relative;
+      width: clamp(200px, 40vw, 440px);
+      height: 20px;
+      flex-shrink: 0;
+    }
+    .range-track, .range-fill {
+      position: absolute;
+      top: 50%; transform: translateY(-50%);
+      height: 3px;
+      border-radius: 2px;
+      pointer-events: none;
+    }
+    .range-track { left: 0; right: 0; background: #2a2a2a; }
+    .range-fill  { background: #7eb8f7; }
+    .freq-slider {
+      position: absolute;
+      top: 50%; transform: translateY(-50%);
+      left: 0; width: 100%; height: 20px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      outline: none;
+      pointer-events: none; /* track non-interactive; thumb overrides below */
+      margin: 0;
+    }
+    .freq-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      pointer-events: all;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: #7eb8f7;
+      cursor: pointer;
+    }
+    .freq-slider::-moz-range-thumb {
+      pointer-events: all;
+      width: 14px; height: 14px;
+      border: none;
+      border-radius: 50%;
+      background: #7eb8f7;
+      cursor: pointer;
+    }
+    .freq-slider::-moz-range-track { background: transparent; }
     button {
       padding: 10px 28px;
       background: #1a1a2e;
@@ -51,8 +102,6 @@
       transition: background 0.15s;
     }
     button:hover { background: #1e2a45; }
-    #status { display: none; }
-
   </style>
 </head>
 <body>
@@ -60,21 +109,48 @@
     <canvas id="canvas" width="500" height="500"></canvas>
     <canvas id="spect"  width="500" height="500"></canvas>
   </div>
+  <div id="controls">
+    <span id="minVal" class="freq-val">0</span>
+    <div class="range-wrap">
+      <div class="range-track"></div>
+      <div class="range-fill" id="rangeFill"></div>
+      <input type="range" class="freq-slider" id="minSlider" min="0" max="1999" step="1" value="300">
+      <input type="range" class="freq-slider" id="maxSlider" min="1" max="2000" step="1" value="400">
+    </div>
+    <span id="maxVal" class="freq-val">500</span>
+    <span style="color:#555">Hz</span>
+  </div>
   <button id="btn">Start Microphone</button>
-  <span id="status">click to begin</span>
 
   <script>
-    const canvas = document.getElementById('canvas');
-    const ctx    = canvas.getContext('2d');
+    const canvas      = document.getElementById('canvas');
+    const ctx         = canvas.getContext('2d');
     const spectCanvas = document.getElementById('spect');
     const spectCtx    = spectCanvas.getContext('2d');
-    const btn    = document.getElementById('btn');
-    const status = document.getElementById('status');
+    const btn         = document.getElementById('btn');
+    const minSlider   = document.getElementById('minSlider');
+    const maxSlider   = document.getElementById('maxSlider');
+    const minValEl    = document.getElementById('minVal');
+    const maxValEl    = document.getElementById('maxVal');
+    const rangeFill   = document.getElementById('rangeFill');
+
+    const SLIDER_MIN = 0, SLIDER_MAX = 20000;
+    function updateTrack() {
+      const lo = parseInt(minSlider.value) / SLIDER_MAX * 100;
+      const hi = parseInt(maxSlider.value) / SLIDER_MAX * 100;
+      rangeFill.style.left  = `${lo}%`;
+      rangeFill.style.width = `${hi - lo}%`;
+    }
+
+    const N_POINTS = 200;
 
     let animId;
 
+    function fmtFreq(hz) {
+      return hz >= 1000 ? `${(hz / 1000).toFixed(hz % 1000 ? 1 : 0)}k` : `${hz}`;
+    }
+
     // Thermal colormap: black → blue → cyan → yellow → white
-    // Writes directly into ImageData array at index px for speed.
     function heatColor(v, d, px) {
       let r, g, b;
       if (v < 0.25) {
@@ -105,67 +181,90 @@
 
         const bufferLength = analyser.frequencyBinCount;
         const dataArray    = new Uint8Array(bufferLength);
+        const nyquist      = audioCtx.sampleRate / 2;
 
-        const MAX_FREQ = 500;
-        const nyquist  = audioCtx.sampleRate / 2;
-        const maxBin   = Math.round(MAX_FREQ / nyquist * bufferLength);
-
-        // ── Spectrum rolling average (2 s) ──────────────────────────────
-        const HISTORY_FRAMES = Math.round(1 * 60);
-        const history = [];
-
-        // ── Spectrogram (10 s rolling window) ───────────────────────────
-        const SPECT_DURATION = 10; // seconds
-        const SPECT_W = spectCanvas.width;
-        const SPECT_H = spectCanvas.height;
-
-        // Each entry: { time: number (seconds), data: Uint8Array(maxBin) }
-        const spectFrames = [];
-
-        // Pre-allocate ImageData so we don't allocate every frame
-        const spectImgData = spectCtx.createImageData(SPECT_W, SPECT_H);
-        // Use a Uint32 view for fast clear (little-endian: 0xFF000000 = opaque black)
-        const spectPx32 = new Uint32Array(spectImgData.data.buffer);
-
-        // Precompute x-pixel → freq bin mapping for the spectrogram
-        const spectBinAt = new Int32Array(SPECT_W);
-        for (let x = 0; x < SPECT_W; x++) {
-          spectBinAt[x] = Math.min(maxBin - 1, Math.round(x / SPECT_W * maxBin));
+        function freqToBin(hz) {
+          return Math.min(bufferLength - 1, Math.round(hz / nyquist * bufferLength));
         }
 
+        let MIN_FREQ = parseInt(minSlider.value);
+        let MAX_FREQ = parseInt(maxSlider.value);
+        let minBin   = freqToBin(MIN_FREQ);
+        let maxBin   = freqToBin(MAX_FREQ);
+
+        // ── Spectrum rolling average (2 s) ──────────────────────────────
+        const HISTORY_FRAMES = Math.round(5 * 60);
+        let history = [];
+
+        // ── Spectrogram (10 s rolling window) ───────────────────────────
+        const SPECT_DURATION = 10;
+        const SPECT_W = spectCanvas.width;
+        const SPECT_H = spectCanvas.height;
+        let spectFrames = [];
+
+        const spectImgData = spectCtx.createImageData(SPECT_W, SPECT_H);
+        const spectPx32    = new Uint32Array(spectImgData.data.buffer);
+
+        // x-pixel → N_POINTS index (data arrays are always N_POINTS long)
+        const spectIdxAt = new Int32Array(SPECT_W);
+        for (let x = 0; x < SPECT_W; x++) {
+          spectIdxAt[x] = Math.min(N_POINTS - 1, Math.round(x / (SPECT_W - 1) * (N_POINTS - 1)));
+        }
+
+        function onSliderChange() {
+          // Enforce min < max with at least 100 Hz gap
+          if (parseInt(minSlider.value) >= parseInt(maxSlider.value)) {
+            if (this === minSlider) minSlider.value = parseInt(maxSlider.value) - 100;
+            else                   maxSlider.value = parseInt(minSlider.value) + 100;
+          }
+          MIN_FREQ = parseInt(minSlider.value);
+          MAX_FREQ = parseInt(maxSlider.value);
+          minValEl.textContent = fmtFreq(MIN_FREQ);
+          maxValEl.textContent = fmtFreq(MAX_FREQ);
+          updateTrack();
+          minBin = freqToBin(MIN_FREQ);
+          maxBin = freqToBin(MAX_FREQ);
+          history = [];
+          spectFrames = [];
+        }
+        minSlider.addEventListener('input', onSliderChange);
+        maxSlider.addEventListener('input', onSliderChange);
+
         btn.textContent = 'Stop';
-        status.textContent = 'listening…';
 
         function draw() {
           animId = requestAnimationFrame(draw);
           analyser.getByteFrequencyData(dataArray);
 
           const now = performance.now() / 1000;
-          const W = canvas.width;
-          const H = canvas.height;
+          const W   = canvas.width;
+          const H   = canvas.height;
 
-          // Snapshot shared by both history and spectrogram
-          const snapshot = new Uint8Array(maxBin);
-          for (let i = 0; i < maxBin; i++) snapshot[i] = dataArray[i];
+          // Resample dataArray[minBin..maxBin] → N_POINTS
+          const binSpan  = maxBin - minBin;
+          const snapshot = new Uint8Array(N_POINTS);
+          for (let i = 0; i < N_POINTS; i++) {
+            snapshot[i] = dataArray[minBin + Math.round(i / (N_POINTS - 1) * binSpan)];
+          }
 
           // ── Rolling average ──────────────────────────────────────────
           history.push(snapshot);
           if (history.length > HISTORY_FRAMES) history.shift();
 
-          const avgArray = new Float32Array(maxBin);
+          const avgArray = new Float32Array(N_POINTS);
           for (const frame of history) {
-            for (let i = 0; i < maxBin; i++) avgArray[i] += frame[i];
+            for (let i = 0; i < N_POINTS; i++) avgArray[i] += frame[i];
           }
-          for (let i = 0; i < maxBin; i++) avgArray[i] /= history.length;
+          for (let i = 0; i < N_POINTS; i++) avgArray[i] /= history.length;
 
           // ── Spectrum chart ───────────────────────────────────────────
-          const LABEL_H = 26;          // pixels reserved below plot for x-axis
-          const PLOT_H  = H - LABEL_H; // usable plot height
+          const LABEL_H = 26;
+          const PLOT_H  = H - LABEL_H;
+          const barW    = W / N_POINTS;
 
           ctx.fillStyle = '#111';
           ctx.fillRect(0, 0, W, H);
 
-          // Horizontal grid lines (within plot area only)
           ctx.strokeStyle = '#1a1a1a';
           ctx.lineWidth = 1;
           for (let i = 0; i <= 4; i++) {
@@ -173,9 +272,8 @@
             ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
           }
 
-          const barW = W / maxBin;
-          for (let i = 0; i < maxBin; i++) {
-            const v = dataArray[i] / 255;
+          for (let i = 0; i < N_POINTS; i++) {
+            const v    = snapshot[i] / 255;
             const barH = v * PLOT_H;
             ctx.fillStyle = `hsl(${240 - v * 240}, 90%, ${30 + v * 40}%)`;
             ctx.fillRect(i * barW, PLOT_H - barH, barW - 1, barH);
@@ -184,65 +282,51 @@
           ctx.beginPath();
           ctx.strokeStyle = 'rgba(255, 220, 80, 0.85)';
           ctx.lineWidth = 2;
-          for (let i = 0; i < maxBin; i++) {
+          for (let i = 0; i < N_POINTS; i++) {
             const x = i * barW + barW / 2;
             const y = PLOT_H - (avgArray[i] / 255) * PLOT_H;
             i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
           }
           ctx.stroke();
 
-          // Separator between plot and label strip
+          // Separator + x-axis labels
           ctx.strokeStyle = '#333';
           ctx.lineWidth = 1;
           ctx.beginPath(); ctx.moveTo(0, PLOT_H); ctx.lineTo(W, PLOT_H); ctx.stroke();
 
-          // X-axis tick marks + labels
           ctx.font = '11px monospace';
-          const freqLabels = [0, 100, 200, 300, 400, 500];
-          for (const freq of freqLabels) {
-            const bin = Math.round(freq / nyquist * bufferLength);
-            const px  = freq === 0 ? 0 : (bin / maxBin) * W;
-            if (px > W) continue;
-
-            // Tick
+          for (let t = 0; t <= 5; t++) {
+            const freq  = Math.round(MIN_FREQ + (MAX_FREQ - MIN_FREQ) * t / 5);
+            const px    = (t / 5) * W;
             ctx.strokeStyle = '#555';
             ctx.lineWidth = 1;
             ctx.beginPath(); ctx.moveTo(px, PLOT_H); ctx.lineTo(px, PLOT_H + 5); ctx.stroke();
-
-            // Label — skip 0 Hz tick label to avoid left-edge clipping
-            if (freq === 0) continue;
-            const label = `${freq}`;
-            const tw = ctx.measureText(label).width;
+            if (t === 0) continue; // skip leftmost label to avoid clipping
+            const label = fmtFreq(freq);
+            const tw    = ctx.measureText(label).width;
             ctx.fillStyle = '#999';
             ctx.fillText(label, Math.min(px - tw / 2, W - tw - 2), PLOT_H + 18);
           }
-
-          // "Hz" unit at far right
-          ctx.fillStyle = '#555';
-          ctx.fillText('Hz', W - 20, PLOT_H + 18);
 
           // ── Spectrogram ──────────────────────────────────────────────
           spectFrames.push({ time: now, data: Uint8Array.from(avgArray) });
           const cutoff = now - SPECT_DURATION;
           while (spectFrames.length > 0 && spectFrames[0].time < cutoff) spectFrames.shift();
 
-          // Clear to opaque black
           spectPx32.fill(0xFF000000);
-
           const d = spectImgData.data;
           for (const frame of spectFrames) {
-            const age = now - frame.time; // 0 = newest, SPECT_DURATION = oldest
+            const age = now - frame.time;
             const y   = Math.round((1 - age / SPECT_DURATION) * (SPECT_H - 1));
             if (y < 0 || y >= SPECT_H) continue;
             const rowBase = y * SPECT_W * 4;
             for (let x = 0; x < SPECT_W; x++) {
-              heatColor(frame.data[spectBinAt[x]] / 255, d, rowBase + x * 4);
+              heatColor(frame.data[spectIdxAt[x]] / 255, d, rowBase + x * 4);
             }
           }
-
           spectCtx.putImageData(spectImgData, 0, 0);
 
-          // Time labels (drawn on top of image, redrawn every frame)
+          // Time labels
           spectCtx.font = '10px monospace';
           for (let s = 0; s <= 10; s += 2) {
             const y     = Math.round((1 - s / SPECT_DURATION) * (SPECT_H - 1));
@@ -254,14 +338,17 @@
             spectCtx.fillText(label, 3, textY);
           }
 
-          // Freq labels at bottom
-          for (const freq of [100, 200, 300, 400, 500]) {
-            const x     = Math.round(freq / MAX_FREQ * SPECT_W);
-            const label = `${freq}`;
+          // Freq labels (matching spectrum chart)
+          spectCtx.font = '10px monospace';
+          for (let t = 1; t <= 5; t++) {
+            const freq  = Math.round(MIN_FREQ + (MAX_FREQ - MIN_FREQ) * t / 5);
+            const x     = Math.round(t / 5 * SPECT_W);
+            const label = fmtFreq(freq);
+            const lw    = label.length * 6;
             spectCtx.fillStyle = 'rgba(0,0,0,0.55)';
-            spectCtx.fillRect(x, SPECT_H - 14, label.length * 6 + 2, 13);
+            spectCtx.fillRect(x - lw / 2, SPECT_H - 14, lw + 2, 13);
             spectCtx.fillStyle = 'rgba(255,255,255,0.65)';
-            spectCtx.fillText(label, x + 1, SPECT_H - 3);
+            spectCtx.fillText(label, x - lw / 2 + 1, SPECT_H - 3);
           }
         }
 
@@ -271,8 +358,9 @@
           cancelAnimationFrame(animId);
           stream.getTracks().forEach(t => t.stop());
           audioCtx.close();
+          minSlider.removeEventListener('input', onSliderChange);
+          maxSlider.removeEventListener('input', onSliderChange);
           btn.textContent = 'Start Microphone';
-          status.textContent = 'stopped';
           ctx.fillStyle = '#111';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           spectCtx.fillStyle = '#111';
@@ -281,9 +369,14 @@
         };
 
       } catch (e) {
-        status.textContent = `Error: ${e.message}`;
+        alert(`Microphone error: ${e.message}`);
       }
     }
+
+    // Initialise displayed values before mic starts
+    minValEl.textContent = fmtFreq(parseInt(minSlider.value));
+    maxValEl.textContent = fmtFreq(parseInt(maxSlider.value));
+    updateTrack();
 
     btn.onclick = start;
   </script>
