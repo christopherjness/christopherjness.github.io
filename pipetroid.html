@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Frequency Spectrum</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0a;
+      color: #eee;
+      font-family: monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 16px;
+      padding: 20px;
+      overflow: auto;
+    }
+    h1 { font-size: 1.1rem; letter-spacing: 0.15em; color: #888; }
+    #plots { display: flex; gap: 16px; align-items: flex-start; }
+    canvas {
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 4px;
+      display: block;
+    }
+    button {
+      padding: 10px 28px;
+      background: #1a1a2e;
+      color: #7eb8f7;
+      border: 1px solid #7eb8f7;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.9rem;
+      cursor: pointer;
+      letter-spacing: 0.1em;
+      transition: background 0.15s;
+    }
+    button:hover { background: #1e2a45; }
+    #status { font-size: 0.75rem; color: #555; }
+
+    /* ── Tartan strip ─────────────────────────────────────────────────── */
+    #tartan {
+      position: fixed;
+      left: 0; top: 0;
+      width: 52px;
+      height: 100vh;
+      z-index: 5;
+      /* Sett (thread count per colour):
+         G/4  K/4  R/24  K/4  G/4  W/4  G/4  K/4  R/24  K/4 …
+         Approximated with a ~64px repeat using semi-transparent layers
+         on a dark-green base so crossings self-mix naturally. */
+      background-color: #1b3a1b;
+      background-image:
+        /* Horizontal threads */
+        repeating-linear-gradient(0deg,
+          transparent          0px,  transparent          4px,
+          rgba(0,0,0,0.55)     4px,  rgba(0,0,0,0.55)     8px,
+          transparent          8px,  transparent          10px,
+          rgba(200,15,15,0.80) 10px, rgba(200,15,15,0.80) 34px,
+          transparent          34px, transparent           36px,
+          rgba(0,0,0,0.55)     36px, rgba(0,0,0,0.55)     40px,
+          transparent          40px, transparent           44px,
+          rgba(240,240,240,0.25) 44px, rgba(240,240,240,0.25) 48px,
+          transparent          48px, transparent           52px,
+          rgba(0,0,0,0.55)     52px, rgba(0,0,0,0.55)     56px,
+          transparent          56px, transparent           60px
+        ),
+        /* Vertical threads (same sett, 90°) */
+        repeating-linear-gradient(90deg,
+          transparent          0px,  transparent          4px,
+          rgba(0,0,0,0.55)     4px,  rgba(0,0,0,0.55)     8px,
+          transparent          8px,  transparent          10px,
+          rgba(200,15,15,0.80) 10px, rgba(200,15,15,0.80) 34px,
+          transparent          34px, transparent           36px,
+          rgba(0,0,0,0.55)     36px, rgba(0,0,0,0.55)     40px,
+          transparent          40px, transparent           44px,
+          rgba(240,240,240,0.25) 44px, rgba(240,240,240,0.25) 48px,
+          transparent          48px, transparent           52px,
+          rgba(0,0,0,0.55)     52px, rgba(0,0,0,0.55)     56px,
+          transparent          56px, transparent           60px
+        );
+    }
+  </style>
+</head>
+<body>
+  <div id="tartan"></div>
+  <h1>FREQUENCY SPECTRUM</h1>
+  <div id="plots">
+    <canvas id="canvas" width="500" height="500"></canvas>
+    <canvas id="spect"  width="500" height="500"></canvas>
+  </div>
+  <button id="btn">Start Microphone</button>
+  <span id="status">click to begin</span>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx    = canvas.getContext('2d');
+    const spectCanvas = document.getElementById('spect');
+    const spectCtx    = spectCanvas.getContext('2d');
+    const btn    = document.getElementById('btn');
+    const status = document.getElementById('status');
+
+    let animId;
+
+    // Thermal colormap: black → blue → cyan → yellow → white
+    // Writes directly into ImageData array at index px for speed.
+    function heatColor(v, d, px) {
+      let r, g, b;
+      if (v < 0.25) {
+        r = 0; g = 0; b = v * 4 * 255 | 0;
+      } else if (v < 0.5) {
+        const t = (v - 0.25) * 4;
+        r = 0; g = t * 255 | 0; b = 255;
+      } else if (v < 0.75) {
+        const t = (v - 0.5) * 4;
+        r = t * 255 | 0; g = 255; b = (1 - t) * 255 | 0;
+      } else {
+        const t = (v - 0.75) * 4;
+        r = 255; g = 255; b = t * 255 | 0;
+      }
+      d[px] = r; d[px+1] = g; d[px+2] = b; d[px+3] = 255;
+    }
+
+    async function start() {
+      try {
+        const stream   = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        const audioCtx = new AudioContext();
+        const source   = audioCtx.createMediaStreamSource(stream);
+
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 32768;
+        analyser.smoothingTimeConstant = 0.8;
+        source.connect(analyser);
+
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray    = new Uint8Array(bufferLength);
+
+        const MAX_FREQ = 500;
+        const nyquist  = audioCtx.sampleRate / 2;
+        const maxBin   = Math.round(MAX_FREQ / nyquist * bufferLength);
+
+        // ── Spectrum rolling average (2 s) ──────────────────────────────
+        const HISTORY_FRAMES = Math.round(2 * 60);
+        const history = [];
+
+        // ── Spectrogram (10 s rolling window) ───────────────────────────
+        const SPECT_DURATION = 10; // seconds
+        const SPECT_W = spectCanvas.width;
+        const SPECT_H = spectCanvas.height;
+
+        // Each entry: { time: number (seconds), data: Uint8Array(maxBin) }
+        const spectFrames = [];
+
+        // Pre-allocate ImageData so we don't allocate every frame
+        const spectImgData = spectCtx.createImageData(SPECT_W, SPECT_H);
+        // Use a Uint32 view for fast clear (little-endian: 0xFF000000 = opaque black)
+        const spectPx32 = new Uint32Array(spectImgData.data.buffer);
+
+        // Precompute x-pixel → freq bin mapping for the spectrogram
+        const spectBinAt = new Int32Array(SPECT_W);
+        for (let x = 0; x < SPECT_W; x++) {
+          spectBinAt[x] = Math.min(maxBin - 1, Math.round(x / SPECT_W * maxBin));
+        }
+
+        btn.textContent = 'Stop';
+        status.textContent = 'listening…';
+
+        function draw() {
+          animId = requestAnimationFrame(draw);
+          analyser.getByteFrequencyData(dataArray);
+
+          const now = performance.now() / 1000;
+          const W = canvas.width;
+          const H = canvas.height;
+
+          // Snapshot shared by both history and spectrogram
+          const snapshot = new Uint8Array(maxBin);
+          for (let i = 0; i < maxBin; i++) snapshot[i] = dataArray[i];
+
+          // ── Rolling average ──────────────────────────────────────────
+          history.push(snapshot);
+          if (history.length > HISTORY_FRAMES) history.shift();
+
+          const avgArray = new Float32Array(maxBin);
+          for (const frame of history) {
+            for (let i = 0; i < maxBin; i++) avgArray[i] += frame[i];
+          }
+          for (let i = 0; i < maxBin; i++) avgArray[i] /= history.length;
+
+          // ── Spectrum chart ───────────────────────────────────────────
+          const LABEL_H = 26;          // pixels reserved below plot for x-axis
+          const PLOT_H  = H - LABEL_H; // usable plot height
+
+          ctx.fillStyle = '#111';
+          ctx.fillRect(0, 0, W, H);
+
+          // Horizontal grid lines (within plot area only)
+          ctx.strokeStyle = '#1a1a1a';
+          ctx.lineWidth = 1;
+          for (let i = 0; i <= 4; i++) {
+            const y = (PLOT_H / 4) * i;
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+          }
+
+          const barW = W / maxBin;
+          for (let i = 0; i < maxBin; i++) {
+            const v = dataArray[i] / 255;
+            const barH = v * PLOT_H;
+            ctx.fillStyle = `hsl(${240 - v * 240}, 90%, ${30 + v * 40}%)`;
+            ctx.fillRect(i * barW, PLOT_H - barH, barW - 1, barH);
+          }
+
+          ctx.beginPath();
+          ctx.strokeStyle = 'rgba(255, 220, 80, 0.85)';
+          ctx.lineWidth = 2;
+          for (let i = 0; i < maxBin; i++) {
+            const x = i * barW + barW / 2;
+            const y = PLOT_H - (avgArray[i] / 255) * PLOT_H;
+            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+
+          // Separator between plot and label strip
+          ctx.strokeStyle = '#333';
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(0, PLOT_H); ctx.lineTo(W, PLOT_H); ctx.stroke();
+
+          // X-axis tick marks + labels
+          ctx.font = '11px monospace';
+          const freqLabels = [0, 100, 200, 300, 400, 500];
+          for (const freq of freqLabels) {
+            const bin = Math.round(freq / nyquist * bufferLength);
+            const px  = freq === 0 ? 0 : (bin / maxBin) * W;
+            if (px > W) continue;
+
+            // Tick
+            ctx.strokeStyle = '#555';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(px, PLOT_H); ctx.lineTo(px, PLOT_H + 5); ctx.stroke();
+
+            // Label — skip 0 Hz tick label to avoid left-edge clipping
+            if (freq === 0) continue;
+            const label = `${freq}`;
+            const tw = ctx.measureText(label).width;
+            ctx.fillStyle = '#999';
+            ctx.fillText(label, Math.min(px - tw / 2, W - tw - 2), PLOT_H + 18);
+          }
+
+          // "Hz" unit at far right
+          ctx.fillStyle = '#555';
+          ctx.fillText('Hz', W - 20, PLOT_H + 18);
+
+          // ── Spectrogram ──────────────────────────────────────────────
+          spectFrames.push({ time: now, data: snapshot });
+          const cutoff = now - SPECT_DURATION;
+          while (spectFrames.length > 0 && spectFrames[0].time < cutoff) spectFrames.shift();
+
+          // Clear to opaque black
+          spectPx32.fill(0xFF000000);
+
+          const d = spectImgData.data;
+          for (const frame of spectFrames) {
+            const age = now - frame.time; // 0 = newest, SPECT_DURATION = oldest
+            const y   = Math.round((1 - age / SPECT_DURATION) * (SPECT_H - 1));
+            if (y < 0 || y >= SPECT_H) continue;
+            const rowBase = y * SPECT_W * 4;
+            for (let x = 0; x < SPECT_W; x++) {
+              heatColor(frame.data[spectBinAt[x]] / 255, d, rowBase + x * 4);
+            }
+          }
+
+          spectCtx.putImageData(spectImgData, 0, 0);
+
+          // Time labels (drawn on top of image, redrawn every frame)
+          spectCtx.font = '10px monospace';
+          for (let s = 0; s <= 10; s += 2) {
+            const y     = Math.round((1 - s / SPECT_DURATION) * (SPECT_H - 1));
+            const textY = Math.max(12, Math.min(SPECT_H - 3, y));
+            const label = s === 0 ? 'now' : `-${s}s`;
+            spectCtx.fillStyle = 'rgba(0,0,0,0.55)';
+            spectCtx.fillRect(2, textY - 11, label.length * 6 + 2, 13);
+            spectCtx.fillStyle = 'rgba(255,255,255,0.65)';
+            spectCtx.fillText(label, 3, textY);
+          }
+
+          // Freq labels at bottom
+          for (const freq of [100, 200, 300, 400, 500]) {
+            const x     = Math.round(freq / MAX_FREQ * SPECT_W);
+            const label = `${freq}`;
+            spectCtx.fillStyle = 'rgba(0,0,0,0.55)';
+            spectCtx.fillRect(x, SPECT_H - 14, label.length * 6 + 2, 13);
+            spectCtx.fillStyle = 'rgba(255,255,255,0.65)';
+            spectCtx.fillText(label, x + 1, SPECT_H - 3);
+          }
+        }
+
+        draw();
+
+        btn.onclick = () => {
+          cancelAnimationFrame(animId);
+          stream.getTracks().forEach(t => t.stop());
+          audioCtx.close();
+          btn.textContent = 'Start Microphone';
+          status.textContent = 'stopped';
+          ctx.fillStyle = '#111';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          spectCtx.fillStyle = '#111';
+          spectCtx.fillRect(0, 0, SPECT_W, SPECT_H);
+          btn.onclick = start;
+        };
+
+      } catch (e) {
+        status.textContent = `Error: ${e.message}`;
+      }
+    }
+
+    btn.onclick = start;
+  </script>
+</body>
+</html>
