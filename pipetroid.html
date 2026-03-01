@@ -7,140 +7,73 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      background: #0a0a0a;
-      color: #eee;
-      font-family: monospace;
+      background: #080808;
+      color: #ccc;
+      font-family: system-ui, -apple-system, sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       min-height: 100vh;
-      gap: 16px;
+      gap: 14px;
       padding: 20px;
       overflow: auto;
     }
-    #plots {
-      display: flex;
-      gap: 16px;
-      align-items: flex-start;
-      justify-content: center;
-      width: 100%;
-    }
     canvas {
-      background: #111;
-      border: 1px solid #222;
-      border-radius: 4px;
+      background: #0c0c0c;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.06);
+      border-radius: 6px;
       display: block;
-      width: min(500px, calc(50vw - 28px));
-      height: min(500px, calc(50vw - 28px));
-    }
-    @media (max-width: 1060px) {
-      #plots  { flex-direction: column; align-items: center; }
-      canvas  { width: min(500px, calc(100vw - 40px)); height: min(500px, calc(100vw - 40px)); }
+      width: min(500px, calc(100vw - 40px));
+      height: min(500px, calc(100vw - 40px));
     }
     #controls {
       display: flex;
       align-items: center;
       gap: 10px;
-      color: #666;
-      font-size: 0.85rem;
+      color: #555;
+      font-size: 0.78rem;
+      letter-spacing: 0.02em;
       flex-wrap: wrap;
       justify-content: center;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 999px;
+      padding: 7px 18px;
     }
-    .freq-val { color: #999; min-width: 4ch; }
-    .range-wrap {
-      position: relative;
-      width: clamp(200px, 40vw, 440px);
-      height: 20px;
-      flex-shrink: 0;
-    }
-    .range-track, .range-fill {
-      position: absolute;
-      top: 50%; transform: translateY(-50%);
-      height: 3px;
-      border-radius: 2px;
-      pointer-events: none;
-    }
-    .range-track { left: 0; right: 0; background: #2a2a2a; }
-    .range-fill  { background: #7eb8f7; }
-    .freq-slider {
-      position: absolute;
-      top: 50%; transform: translateY(-50%);
-      left: 0; width: 100%; height: 20px;
-      -webkit-appearance: none;
-      appearance: none;
-      background: transparent;
-      outline: none;
-      pointer-events: none; /* track non-interactive; thumb overrides below */
-      margin: 0;
-    }
-    .freq-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      pointer-events: all;
-      width: 14px; height: 14px;
-      border-radius: 50%;
-      background: #7eb8f7;
-      cursor: pointer;
-    }
-    .freq-slider::-moz-range-thumb {
-      pointer-events: all;
-      width: 14px; height: 14px;
-      border: none;
-      border-radius: 50%;
-      background: #7eb8f7;
-      cursor: pointer;
-    }
-    .freq-slider::-moz-range-track { background: transparent; }
-    #resInfo { color: #555; font-size: 0.75rem; white-space: nowrap; }
+    #avgSlider { accent-color: #5a9fd4; }
+    #resInfo { color: #3a3a3a; font-size: 0.7rem; white-space: nowrap; }
   </style>
 </head>
 <body>
-  <div id="plots">
-    <canvas id="canvas" width="500" height="500"></canvas>
-    <canvas id="spect"  width="500" height="500"></canvas>
-  </div>
+  <canvas id="combined" width="500" height="500"></canvas>
   <div id="controls">
-    <span id="minVal" class="freq-val">0</span>
-    <div class="range-wrap">
-      <div class="range-track"></div>
-      <div class="range-fill" id="rangeFill"></div>
-      <input type="range" class="freq-slider" id="minSlider" min="0" max="999" step="1" value="0">
-      <input type="range" class="freq-slider" id="maxSlider" min="1" max="1000" step="1" value="1000">
-    </div>
-    <span id="maxVal" class="freq-val">500</span>
-    <span style="color:#555">Hz</span>
     <span id="resInfo"></span>
     <span style="color:#555;margin-left:10px">avg</span>
     <input type="range" id="avgSlider" min="0" max="10" step="0.1" value="5"
-           style="width:90px;accent-color:#7eb8f7;cursor:pointer">
+           style="width:80px;cursor:pointer">
     <span id="avgVal" class="freq-val">5s</span>
+    <span style="color:#555;margin-left:6px">dur</span>
+    <input type="range" id="durSlider" min="10" max="60" step="1" value="35"
+           style="width:80px;accent-color:#5a9fd4;cursor:pointer">
+    <span id="durVal" class="freq-val">35s</span>
   </div>
 
   <script>
-    const canvas      = document.getElementById('canvas');
-    const ctx         = canvas.getContext('2d');
-    const spectCanvas = document.getElementById('spect');
-    const spectCtx    = spectCanvas.getContext('2d');
-    const minSlider   = document.getElementById('minSlider');
-    const maxSlider   = document.getElementById('maxSlider');
-    const minValEl    = document.getElementById('minVal');
-    const maxValEl    = document.getElementById('maxVal');
-    const rangeFill   = document.getElementById('rangeFill');
+    const combCanvas  = document.getElementById('combined');
+    const combCtx     = combCanvas.getContext('2d');
     const resInfoEl   = document.getElementById('resInfo');
     const avgSlider   = document.getElementById('avgSlider');
     const avgValEl    = document.getElementById('avgVal');
+    const durSlider   = document.getElementById('durSlider');
+    const durValEl    = document.getElementById('durVal');
 
     avgSlider.addEventListener('input', () => {
       avgValEl.textContent = `${parseFloat(avgSlider.value).toFixed(1)}s`;
     });
-
-    const SLIDER_MAX = 1000;
-    function updateTrack() {
-      const lo = parseInt(minSlider.value) / SLIDER_MAX * 100;
-      const hi = parseInt(maxSlider.value) / SLIDER_MAX * 100;
-      rangeFill.style.left  = `${lo}%`;
-      rangeFill.style.width = `${hi - lo}%`;
-    }
+    durSlider.addEventListener('input', () => {
+      durValEl.textContent = `${durSlider.value}s`;
+    });
 
     const N_POINTS   = 200;
     const N_ZOOM_MAX = 8192;    // cap FFT size for real-time performance
@@ -245,7 +178,6 @@
       for (let i = 0; i < N; i++) mag[i] = Math.sqrt(re[i]*re[i] + im[i]*im[i]);
 
       // fftshift: swap halves so output is ordered minF → maxF
-      // bin 0 = DC = fc; bins 1..N/2-1 = positive (fc..maxF); bins N/2..N-1 = negative (minF..fc)
       const mags = new Uint8Array(N);
       const half = N >> 1;
       for (let i = 0; i < half; i++) mags[i]       = magToUint8(mag[i + half], N);
@@ -314,18 +246,16 @@
 
         const Fs = audioCtx.sampleRate;
 
-        let MIN_FREQ = parseInt(minSlider.value);
-        let MAX_FREQ = parseInt(maxSlider.value);
+        const MIN_FREQ = 0;
+        const MAX_FREQ = 1000;
 
         let history = [];
 
-        // ── Spectrogram (60 s rolling window) ───────────────────────────
-        const SPECT_DURATION = 60;
-        const SPECT_W = spectCanvas.width;
-        const SPECT_H = spectCanvas.height;
+        const SPECT_W = combCanvas.width;
+        const SPECT_H = combCanvas.height;
         let spectFrames = [];
 
-        const spectImgData = spectCtx.createImageData(SPECT_W, SPECT_H);
+        const spectImgData = combCtx.createImageData(SPECT_W, SPECT_H);
         const spectPx32    = new Uint32Array(spectImgData.data.buffer);
 
         // x-pixel → N_POINTS index
@@ -334,28 +264,10 @@
           spectIdxAt[x] = Math.min(N_POINTS - 1, Math.round(x / (SPECT_W - 1) * (N_POINTS - 1)));
         }
 
-        function onSliderChange() {
-          if (parseInt(minSlider.value) >= parseInt(maxSlider.value)) {
-            if (this === minSlider) minSlider.value = parseInt(maxSlider.value) - 100;
-            else                   maxSlider.value  = parseInt(minSlider.value) + 100;
-          }
-          MIN_FREQ = parseInt(minSlider.value);
-          MAX_FREQ = parseInt(maxSlider.value);
-          minValEl.textContent = fmtFreq(MIN_FREQ);
-          maxValEl.textContent = fmtFreq(MAX_FREQ);
-          updateTrack();
-          history = [];
-          spectFrames = [];
-        }
-        minSlider.addEventListener('input', onSliderChange);
-        maxSlider.addEventListener('input', onSliderChange);
-
         function draw() {
           requestAnimationFrame(draw);
 
           const now = performance.now() / 1000;
-          const W   = canvas.width;
-          const H   = canvas.height;
 
           // ── Zoom FFT ─────────────────────────────────────────────────────
           const result = computeZoomFFT(MIN_FREQ, MAX_FREQ, Fs);
@@ -385,39 +297,7 @@
           }
           for (let i = 0; i < N_POINTS; i++) avgArray[i] /= history.length;
 
-          // ── Spectrum chart ────────────────────────────────────────────
-          const LABEL_H = 26;
-          const PLOT_H  = H - LABEL_H;
-          const barW    = W / N_POINTS;
-
-          ctx.fillStyle = '#111';
-          ctx.fillRect(0, 0, W, H);
-
-          ctx.strokeStyle = '#1a1a1a';
-          ctx.lineWidth = 1;
-          for (let i = 0; i <= 4; i++) {
-            const y = (PLOT_H / 4) * i;
-            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-          }
-
-          for (let i = 0; i < N_POINTS; i++) {
-            const v    = snapshot[i] / 255;
-            const barH = v * PLOT_H;
-            ctx.fillStyle = `hsl(${240 - v * 240}, 90%, ${30 + v * 40}%)`;
-            ctx.fillRect(i * barW, PLOT_H - barH, barW - 1, barH);
-          }
-
-          ctx.beginPath();
-          ctx.strokeStyle = 'rgba(255, 220, 80, 0.85)';
-          ctx.lineWidth = 2;
-          for (let i = 0; i < N_POINTS; i++) {
-            const x = i * barW + barW / 2;
-            const y = PLOT_H - (avgArray[i] / 255) * PLOT_H;
-            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-          }
-          ctx.stroke();
-
-          // ── Top-3 peak labels (from averaged line) ───────────────────
+          // ── Peak detection ───────────────────────────────────────────
           const peaks = [];
           for (let i = 1; i < N_POINTS - 1; i++) {
             if (avgArray[i] > 20 && avgArray[i] >= avgArray[i-1] && avgArray[i] >= avgArray[i+1]) {
@@ -425,39 +305,9 @@
             }
           }
           peaks.sort((a, b) => avgArray[b] - avgArray[a]);
-          ctx.font = '10px monospace';
-          for (let p = 0; p < Math.min(3, peaks.length); p++) {
-            const i    = peaks[p];
-            const freq = Math.round(MIN_FREQ + snapBinIdx[i] / (N - 1) * (MAX_FREQ - MIN_FREQ));
-            const x    = i * barW + barW / 2;
-            const y    = PLOT_H - (avgArray[i] / 255) * PLOT_H;
-            const label = fmtFreq(freq);
-            const tw   = ctx.measureText(label).width;
-            ctx.fillStyle = 'rgba(255,255,255,0.9)';
-            ctx.fillRect(Math.max(0, Math.min(W - tw - 2, x - tw / 2 - 1)), Math.max(2, y - 16), tw + 2, 13);
-            ctx.fillStyle = '#111';
-            ctx.fillText(label, Math.max(1, Math.min(W - tw - 1, x - tw / 2)), Math.max(13, y - 5));
-          }
 
-          // Separator + x-axis labels
-          ctx.strokeStyle = '#333';
-          ctx.lineWidth = 1;
-          ctx.beginPath(); ctx.moveTo(0, PLOT_H); ctx.lineTo(W, PLOT_H); ctx.stroke();
-
-          ctx.font = '11px monospace';
-          for (let t = 0; t <= 5; t++) {
-            const freq  = Math.round(MIN_FREQ + (MAX_FREQ - MIN_FREQ) * t / 5);
-            const px    = (t / 5) * W;
-            ctx.strokeStyle = '#555';
-            ctx.beginPath(); ctx.moveTo(px, PLOT_H); ctx.lineTo(px, PLOT_H + 5); ctx.stroke();
-            if (t === 0) continue;
-            const label = fmtFreq(freq);
-            const tw    = ctx.measureText(label).width;
-            ctx.fillStyle = '#999';
-            ctx.fillText(label, Math.min(px - tw / 2, W - tw - 2), PLOT_H + 18);
-          }
-
-          // ── Spectrogram ───────────────────────────────────────────────
+          // ── Spectrogram image ─────────────────────────────────────────
+          const SPECT_DURATION = parseInt(durSlider.value);
           spectFrames.push({ time: now, data: Uint8Array.from(avgArray) });
           const cutoff = now - SPECT_DURATION;
           while (spectFrames.length > 0 && spectFrames[0].time < cutoff) spectFrames.shift();
@@ -473,18 +323,68 @@
               heatColor(frame.data[spectIdxAt[x]] / 255, d, rowBase + x * 4);
             }
           }
-          spectCtx.putImageData(spectImgData, 0, 0);
 
-          // Freq labels
-          for (let t = 1; t <= 5; t++) {
-            const freq  = Math.round(MIN_FREQ + (MAX_FREQ - MIN_FREQ) * t / 5);
-            const x     = Math.round(t / 5 * SPECT_W);
+          // ── Combined canvas ───────────────────────────────────────────
+          const CW = combCanvas.width;
+          const CH = combCanvas.height;
+          const LABEL_H   = 26;
+          const combPlotH = CH - LABEL_H;
+          const combBarW  = CW / N_POINTS;
+
+          combCtx.putImageData(spectImgData, 0, 0);
+
+          // Dark strip for label area
+          combCtx.fillStyle = '#0c0c0c';
+          combCtx.fillRect(0, combPlotH, CW, LABEL_H);
+
+          // Semi-transparent spectrum bars
+          for (let i = 0; i < N_POINTS; i++) {
+            const v    = snapshot[i] / 255;
+            const barH = v * combPlotH;
+            combCtx.fillStyle = `hsla(${220 - v * 180}, 70%, ${18 + v * 38}%, 0.5)`;
+            combCtx.fillRect(i * combBarW, combPlotH - barH, combBarW, barH);
+          }
+
+          // Average line
+          combCtx.beginPath();
+          combCtx.strokeStyle = 'rgba(255, 210, 60, 0.85)';
+          combCtx.lineWidth = 1.5;
+          for (let i = 0; i < N_POINTS; i++) {
+            const x = i * combBarW + combBarW / 2;
+            const y = combPlotH - (avgArray[i] / 255) * combPlotH;
+            i === 0 ? combCtx.moveTo(x, y) : combCtx.lineTo(x, y);
+          }
+          combCtx.stroke();
+
+          // Peak labels
+          combCtx.font = '10px system-ui, sans-serif';
+          combCtx.shadowColor = 'rgba(0,0,0,0.95)';
+          combCtx.shadowBlur = 5;
+          combCtx.fillStyle = 'rgba(180,210,255,0.9)';
+          for (let p = 0; p < Math.min(3, peaks.length); p++) {
+            const i     = peaks[p];
+            const freq  = Math.round(MIN_FREQ + snapBinIdx[i] / (N - 1) * (MAX_FREQ - MIN_FREQ));
+            const x     = i * combBarW + combBarW / 2;
+            const y     = combPlotH - (avgArray[i] / 255) * combPlotH;
             const label = fmtFreq(freq);
-            const lw    = label.length * 6;
-            spectCtx.fillStyle = 'rgba(0,0,0,0.55)';
-            spectCtx.fillRect(x - lw / 2, SPECT_H - 14, lw + 2, 13);
-            spectCtx.fillStyle = 'rgba(255,255,255,0.65)';
-            spectCtx.fillText(label, x - lw / 2 + 1, SPECT_H - 3);
+            const tw    = combCtx.measureText(label).width;
+            combCtx.fillText(label, Math.max(1, Math.min(CW - tw - 1, x - tw / 2)), Math.max(11, y - 5));
+          }
+          combCtx.shadowBlur = 0;
+
+          // X-axis labels
+          combCtx.font = '10px system-ui, sans-serif';
+          for (let t = 0; t <= 5; t++) {
+            const freq  = Math.round(MIN_FREQ + (MAX_FREQ - MIN_FREQ) * t / 5);
+            const px    = (t / 5) * CW;
+            combCtx.strokeStyle = 'rgba(255,255,255,0.12)';
+            combCtx.lineWidth = 1;
+            combCtx.beginPath(); combCtx.moveTo(px, combPlotH); combCtx.lineTo(px, combPlotH + 4); combCtx.stroke();
+            if (t === 0) continue;
+            const label = fmtFreq(freq);
+            const tw    = combCtx.measureText(label).width;
+            combCtx.fillStyle = '#555';
+            combCtx.fillText(label, Math.min(px - tw / 2, CW - tw - 2), combPlotH + 16);
           }
         }
 
@@ -494,11 +394,6 @@
         alert(`Microphone error: ${e.message}`);
       }
     }
-
-    // Initialise displayed values and auto-start
-    minValEl.textContent = fmtFreq(parseInt(minSlider.value));
-    maxValEl.textContent = fmtFreq(parseInt(maxSlider.value));
-    updateTrack();
 
     start();
   </script>
