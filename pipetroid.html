@@ -44,6 +44,8 @@
       gap: 10px;
       color: #666;
       font-size: 0.85rem;
+      flex-wrap: wrap;
+      justify-content: center;
     }
     .freq-val { color: #999; min-width: 4ch; }
     .range-wrap {
@@ -89,19 +91,7 @@
       cursor: pointer;
     }
     .freq-slider::-moz-range-track { background: transparent; }
-    button {
-      padding: 10px 28px;
-      background: #1a1a2e;
-      color: #7eb8f7;
-      border: 1px solid #7eb8f7;
-      border-radius: 4px;
-      font-family: monospace;
-      font-size: 0.9rem;
-      cursor: pointer;
-      letter-spacing: 0.1em;
-      transition: background 0.15s;
-    }
-    button:hover { background: #1e2a45; }
+    #resInfo { color: #555; font-size: 0.75rem; white-space: nowrap; }
   </style>
 </head>
 <body>
@@ -114,27 +104,37 @@
     <div class="range-wrap">
       <div class="range-track"></div>
       <div class="range-fill" id="rangeFill"></div>
-      <input type="range" class="freq-slider" id="minSlider" min="0" max="1999" step="1" value="300">
-      <input type="range" class="freq-slider" id="maxSlider" min="1" max="2000" step="1" value="400">
+      <input type="range" class="freq-slider" id="minSlider" min="0" max="999" step="1" value="0">
+      <input type="range" class="freq-slider" id="maxSlider" min="1" max="1000" step="1" value="1000">
     </div>
     <span id="maxVal" class="freq-val">500</span>
     <span style="color:#555">Hz</span>
+    <span id="resInfo"></span>
+    <span style="color:#555;margin-left:10px">avg</span>
+    <input type="range" id="avgSlider" min="0" max="10" step="0.1" value="5"
+           style="width:90px;accent-color:#7eb8f7;cursor:pointer">
+    <span id="avgVal" class="freq-val">5s</span>
   </div>
-  <button id="btn">Start Microphone</button>
 
   <script>
     const canvas      = document.getElementById('canvas');
     const ctx         = canvas.getContext('2d');
     const spectCanvas = document.getElementById('spect');
     const spectCtx    = spectCanvas.getContext('2d');
-    const btn         = document.getElementById('btn');
     const minSlider   = document.getElementById('minSlider');
     const maxSlider   = document.getElementById('maxSlider');
     const minValEl    = document.getElementById('minVal');
     const maxValEl    = document.getElementById('maxVal');
     const rangeFill   = document.getElementById('rangeFill');
+    const resInfoEl   = document.getElementById('resInfo');
+    const avgSlider   = document.getElementById('avgSlider');
+    const avgValEl    = document.getElementById('avgVal');
 
-    const SLIDER_MIN = 0, SLIDER_MAX = 20000;
+    avgSlider.addEventListener('input', () => {
+      avgValEl.textContent = `${parseFloat(avgSlider.value).toFixed(1)}s`;
+    });
+
+    const SLIDER_MAX = 1000;
     function updateTrack() {
       const lo = parseInt(minSlider.value) / SLIDER_MAX * 100;
       const hi = parseInt(maxSlider.value) / SLIDER_MAX * 100;
@@ -142,12 +142,116 @@
       rangeFill.style.width = `${hi - lo}%`;
     }
 
-    const N_POINTS = 200;
-
-    let animId;
+    const N_POINTS   = 200;
+    const N_ZOOM_MAX = 8192;    // cap FFT size for real-time performance
+    const RING       = 1 << 18; // 262144 samples ≈ 5.5 s at 48 kHz
+    const RING_MASK  = RING - 1;
+    const ring       = new Float32Array(RING);
+    let ringHead = 0, ringFill = 0;
 
     function fmtFreq(hz) {
       return hz >= 1000 ? `${(hz / 1000).toFixed(hz % 1000 ? 1 : 0)}k` : `${hz}`;
+    }
+
+    // Cooley-Tukey radix-2 in-place FFT (N must be a power of 2)
+    function fft(re, im) {
+      const n = re.length;
+      for (let i = 1, j = 0; i < n; i++) {
+        let bit = n >> 1;
+        for (; j & bit; bit >>= 1) j ^= bit;
+        j ^= bit;
+        if (i < j) {
+          let t = re[i]; re[i] = re[j]; re[j] = t;
+              t = im[i]; im[i] = im[j]; im[j] = t;
+        }
+      }
+      for (let len = 2; len <= n; len <<= 1) {
+        const ang = -2 * Math.PI / len;
+        const wRe = Math.cos(ang), wIm = Math.sin(ang);
+        const half = len >> 1;
+        for (let i = 0; i < n; i += len) {
+          let cRe = 1, cIm = 0;
+          for (let j = 0; j < half; j++) {
+            const uRe = re[i+j],        uIm = im[i+j];
+            const vRe = re[i+j+half]*cRe - im[i+j+half]*cIm;
+            const vIm = re[i+j+half]*cIm + im[i+j+half]*cRe;
+            re[i+j]      = uRe + vRe;  im[i+j]      = uIm + vIm;
+            re[i+j+half] = uRe - vRe;  im[i+j+half] = uIm - vIm;
+            const nRe = cRe*wRe - cIm*wIm;
+            cIm = cRe*wIm + cIm*wRe;  cRe = nRe;
+          }
+        }
+      }
+    }
+
+    // Convert FFT magnitude to 0–255 (maps –90…0 dBFS → 0…255)
+    function magToUint8(mag, N) {
+      const dB = 20 * Math.log10(Math.max(1e-15, mag / (N * 0.25)));
+      return Math.max(0, Math.min(255, ((dB + 90) / 90 * 255) | 0));
+    }
+
+    // Zoom FFT: heterodyne + box-filter decimate + FFT + fftshift
+    // Returns { mags: Uint8Array(N), N, binHz } or null if not enough samples yet
+    function computeZoomFFT(minF, maxF, Fs) {
+      const BW = maxF - minF;
+      const fc = (minF + maxF) / 2;
+      // Decimate so the decimated Nyquist just covers the band
+      const D = Math.max(1, Math.floor(Fs / BW));
+      // Largest power-of-2 N such that N*D <= ringFill and N <= N_ZOOM_MAX
+      let N = 1;
+      while ((N << 1) * D <= ringFill && (N << 1) <= N_ZOOM_MAX) N <<= 1;
+      if (N < 4) return null;
+      const K = N * D;
+
+      // Extract K most-recent samples from ring buffer into flat array
+      const raw = new Float32Array(K);
+      const start = (ringHead - K + RING) & RING_MASK;
+      const end1  = Math.min(K, RING - start);
+      raw.set(ring.subarray(start, start + end1));
+      if (end1 < K) raw.set(ring.subarray(0, K - end1), end1);
+
+      // Mix-down (heterodyne to DC) + box-filter decimate
+      // Uses running phasor recurrence to avoid per-sample cos/sin
+      const re = new Float32Array(N);
+      const im = new Float32Array(N);
+      const dpRe = Math.cos(-2 * Math.PI * fc / Fs);
+      const dpIm = Math.sin(-2 * Math.PI * fc / Fs);
+      let phRe = 1, phIm = 0;
+      for (let i = 0; i < N; i++) {
+        let sRe = 0, sIm = 0;
+        for (let d = 0; d < D; d++) {
+          const x = raw[i * D + d];
+          sRe += x * phRe;
+          sIm += x * phIm;
+          const nRe = phRe * dpRe - phIm * dpIm;
+          phIm = phRe * dpIm + phIm * dpRe;
+          phRe = nRe;
+        }
+        re[i] = sRe / D;
+        im[i] = sIm / D;
+      }
+
+      // Hann window
+      for (let i = 0; i < N; i++) {
+        const w = 0.5 * (1 - Math.cos(2 * Math.PI * i / (N - 1)));
+        re[i] *= w;
+        im[i] *= w;
+      }
+
+      fft(re, im);
+
+      // Magnitudes
+      const mag = new Float32Array(N);
+      for (let i = 0; i < N; i++) mag[i] = Math.sqrt(re[i]*re[i] + im[i]*im[i]);
+
+      // fftshift: swap halves so output is ordered minF → maxF
+      // bin 0 = DC = fc; bins 1..N/2-1 = positive (fc..maxF); bins N/2..N-1 = negative (minF..fc)
+      const mags = new Uint8Array(N);
+      const half = N >> 1;
+      for (let i = 0; i < half; i++) mags[i]       = magToUint8(mag[i + half], N);
+      for (let i = 0; i < half; i++) mags[i + half] = magToUint8(mag[i],       N);
+
+      return { mags, N, binHz: BW / N };
     }
 
     // Thermal colormap: black → blue → cyan → yellow → white
@@ -174,30 +278,49 @@
         const audioCtx = new AudioContext();
         const source   = audioCtx.createMediaStreamSource(stream);
 
-        const analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 32768;
-        analyser.smoothingTimeConstant = 0.8;
-        source.connect(analyser);
+        // ── AudioWorklet for raw sample collection via blob URL ──────────
+        const workletSrc = `
+          class SampleCollector extends AudioWorkletProcessor {
+            process(inputs) {
+              const ch = inputs[0]?.[0];
+              if (ch) {
+                const copy = new Float32Array(ch.length);
+                copy.set(ch);
+                this.port.postMessage(copy.buffer, [copy.buffer]);
+              }
+              return true;
+            }
+          }
+          registerProcessor('sample-collector', SampleCollector);
+        `;
+        const blobUrl = URL.createObjectURL(
+          new Blob([workletSrc], { type: 'application/javascript' })
+        );
+        await audioCtx.audioWorklet.addModule(blobUrl);
+        URL.revokeObjectURL(blobUrl);
 
-        const bufferLength = analyser.frequencyBinCount;
-        const dataArray    = new Uint8Array(bufferLength);
-        const nyquist      = audioCtx.sampleRate / 2;
+        const workletNode = new AudioWorkletNode(audioCtx, 'sample-collector');
+        workletNode.port.onmessage = (e) => {
+          const chunk = new Float32Array(e.data);
+          for (let i = 0; i < chunk.length; i++) {
+            ring[ringHead] = chunk[i];
+            ringHead = (ringHead + 1) & RING_MASK;
+          }
+          ringFill = Math.min(ringFill + chunk.length, RING);
+        };
+        source.connect(workletNode);
+        // Worklet outputs silence (no write to outputs[]) — safe to connect to destination
+        workletNode.connect(audioCtx.destination);
 
-        function freqToBin(hz) {
-          return Math.min(bufferLength - 1, Math.round(hz / nyquist * bufferLength));
-        }
+        const Fs = audioCtx.sampleRate;
 
         let MIN_FREQ = parseInt(minSlider.value);
         let MAX_FREQ = parseInt(maxSlider.value);
-        let minBin   = freqToBin(MIN_FREQ);
-        let maxBin   = freqToBin(MAX_FREQ);
 
-        // ── Spectrum rolling average (2 s) ──────────────────────────────
-        const HISTORY_FRAMES = Math.round(5 * 60);
         let history = [];
 
-        // ── Spectrogram (10 s rolling window) ───────────────────────────
-        const SPECT_DURATION = 10;
+        // ── Spectrogram (60 s rolling window) ───────────────────────────
+        const SPECT_DURATION = 60;
         const SPECT_W = spectCanvas.width;
         const SPECT_H = spectCanvas.height;
         let spectFrames = [];
@@ -205,51 +328,56 @@
         const spectImgData = spectCtx.createImageData(SPECT_W, SPECT_H);
         const spectPx32    = new Uint32Array(spectImgData.data.buffer);
 
-        // x-pixel → N_POINTS index (data arrays are always N_POINTS long)
+        // x-pixel → N_POINTS index
         const spectIdxAt = new Int32Array(SPECT_W);
         for (let x = 0; x < SPECT_W; x++) {
           spectIdxAt[x] = Math.min(N_POINTS - 1, Math.round(x / (SPECT_W - 1) * (N_POINTS - 1)));
         }
 
         function onSliderChange() {
-          // Enforce min < max with at least 100 Hz gap
           if (parseInt(minSlider.value) >= parseInt(maxSlider.value)) {
             if (this === minSlider) minSlider.value = parseInt(maxSlider.value) - 100;
-            else                   maxSlider.value = parseInt(minSlider.value) + 100;
+            else                   maxSlider.value  = parseInt(minSlider.value) + 100;
           }
           MIN_FREQ = parseInt(minSlider.value);
           MAX_FREQ = parseInt(maxSlider.value);
           minValEl.textContent = fmtFreq(MIN_FREQ);
           maxValEl.textContent = fmtFreq(MAX_FREQ);
           updateTrack();
-          minBin = freqToBin(MIN_FREQ);
-          maxBin = freqToBin(MAX_FREQ);
           history = [];
           spectFrames = [];
         }
         minSlider.addEventListener('input', onSliderChange);
         maxSlider.addEventListener('input', onSliderChange);
 
-        btn.textContent = 'Stop';
-
         function draw() {
-          animId = requestAnimationFrame(draw);
-          analyser.getByteFrequencyData(dataArray);
+          requestAnimationFrame(draw);
 
           const now = performance.now() / 1000;
           const W   = canvas.width;
           const H   = canvas.height;
 
-          // Resample dataArray[minBin..maxBin] → N_POINTS
-          const binSpan  = maxBin - minBin;
-          const snapshot = new Uint8Array(N_POINTS);
+          // ── Zoom FFT ─────────────────────────────────────────────────────
+          const result = computeZoomFFT(MIN_FREQ, MAX_FREQ, Fs);
+          if (!result) return; // ring not filled enough yet
+
+          const { mags, N, binHz } = result;
+
+          // Resample N zoom-FFT bins → N_POINTS display points
+          const snapshot   = new Uint8Array(N_POINTS);
+          const snapBinIdx = new Uint16Array(N_POINTS); // display point → source FFT bin
           for (let i = 0; i < N_POINTS; i++) {
-            snapshot[i] = dataArray[minBin + Math.round(i / (N_POINTS - 1) * binSpan)];
+            const b = Math.min(N - 1, Math.round(i / (N_POINTS - 1) * (N - 1)));
+            snapshot[i]   = mags[b];
+            snapBinIdx[i] = b;
           }
 
+          resInfoEl.textContent = `${binHz.toFixed(3)} Hz/bin · ${N} pt FFT`;
+
           // ── Rolling average ──────────────────────────────────────────
+          const maxHistory = Math.max(1, Math.round(parseFloat(avgSlider.value) * 60));
           history.push(snapshot);
-          if (history.length > HISTORY_FRAMES) history.shift();
+          while (history.length > maxHistory) history.shift();
 
           const avgArray = new Float32Array(N_POINTS);
           for (const frame of history) {
@@ -257,7 +385,7 @@
           }
           for (let i = 0; i < N_POINTS; i++) avgArray[i] /= history.length;
 
-          // ── Spectrum chart ───────────────────────────────────────────
+          // ── Spectrum chart ────────────────────────────────────────────
           const LABEL_H = 26;
           const PLOT_H  = H - LABEL_H;
           const barW    = W / N_POINTS;
@@ -289,6 +417,28 @@
           }
           ctx.stroke();
 
+          // ── Top-3 peak labels (from averaged line) ───────────────────
+          const peaks = [];
+          for (let i = 1; i < N_POINTS - 1; i++) {
+            if (avgArray[i] > 20 && avgArray[i] >= avgArray[i-1] && avgArray[i] >= avgArray[i+1]) {
+              peaks.push(i);
+            }
+          }
+          peaks.sort((a, b) => avgArray[b] - avgArray[a]);
+          ctx.font = '10px monospace';
+          for (let p = 0; p < Math.min(3, peaks.length); p++) {
+            const i    = peaks[p];
+            const freq = Math.round(MIN_FREQ + snapBinIdx[i] / (N - 1) * (MAX_FREQ - MIN_FREQ));
+            const x    = i * barW + barW / 2;
+            const y    = PLOT_H - (avgArray[i] / 255) * PLOT_H;
+            const label = fmtFreq(freq);
+            const tw   = ctx.measureText(label).width;
+            ctx.fillStyle = 'rgba(255,255,255,0.9)';
+            ctx.fillRect(Math.max(0, Math.min(W - tw - 2, x - tw / 2 - 1)), Math.max(2, y - 16), tw + 2, 13);
+            ctx.fillStyle = '#111';
+            ctx.fillText(label, Math.max(1, Math.min(W - tw - 1, x - tw / 2)), Math.max(13, y - 5));
+          }
+
           // Separator + x-axis labels
           ctx.strokeStyle = '#333';
           ctx.lineWidth = 1;
@@ -299,16 +449,15 @@
             const freq  = Math.round(MIN_FREQ + (MAX_FREQ - MIN_FREQ) * t / 5);
             const px    = (t / 5) * W;
             ctx.strokeStyle = '#555';
-            ctx.lineWidth = 1;
             ctx.beginPath(); ctx.moveTo(px, PLOT_H); ctx.lineTo(px, PLOT_H + 5); ctx.stroke();
-            if (t === 0) continue; // skip leftmost label to avoid clipping
+            if (t === 0) continue;
             const label = fmtFreq(freq);
             const tw    = ctx.measureText(label).width;
             ctx.fillStyle = '#999';
             ctx.fillText(label, Math.min(px - tw / 2, W - tw - 2), PLOT_H + 18);
           }
 
-          // ── Spectrogram ──────────────────────────────────────────────
+          // ── Spectrogram ───────────────────────────────────────────────
           spectFrames.push({ time: now, data: Uint8Array.from(avgArray) });
           const cutoff = now - SPECT_DURATION;
           while (spectFrames.length > 0 && spectFrames[0].time < cutoff) spectFrames.shift();
@@ -326,20 +475,7 @@
           }
           spectCtx.putImageData(spectImgData, 0, 0);
 
-          // Time labels
-          spectCtx.font = '10px monospace';
-          for (let s = 0; s <= 10; s += 2) {
-            const y     = Math.round((1 - s / SPECT_DURATION) * (SPECT_H - 1));
-            const textY = Math.max(12, Math.min(SPECT_H - 3, y));
-            const label = s === 0 ? 'now' : `-${s}s`;
-            spectCtx.fillStyle = 'rgba(0,0,0,0.55)';
-            spectCtx.fillRect(2, textY - 11, label.length * 6 + 2, 13);
-            spectCtx.fillStyle = 'rgba(255,255,255,0.65)';
-            spectCtx.fillText(label, 3, textY);
-          }
-
-          // Freq labels (matching spectrum chart)
-          spectCtx.font = '10px monospace';
+          // Freq labels
           for (let t = 1; t <= 5; t++) {
             const freq  = Math.round(MIN_FREQ + (MAX_FREQ - MIN_FREQ) * t / 5);
             const x     = Math.round(t / 5 * SPECT_W);
@@ -354,31 +490,17 @@
 
         draw();
 
-        btn.onclick = () => {
-          cancelAnimationFrame(animId);
-          stream.getTracks().forEach(t => t.stop());
-          audioCtx.close();
-          minSlider.removeEventListener('input', onSliderChange);
-          maxSlider.removeEventListener('input', onSliderChange);
-          btn.textContent = 'Start Microphone';
-          ctx.fillStyle = '#111';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          spectCtx.fillStyle = '#111';
-          spectCtx.fillRect(0, 0, SPECT_W, SPECT_H);
-          btn.onclick = start;
-        };
-
       } catch (e) {
         alert(`Microphone error: ${e.message}`);
       }
     }
 
-    // Initialise displayed values before mic starts
+    // Initialise displayed values and auto-start
     minValEl.textContent = fmtFreq(parseInt(minSlider.value));
     maxValEl.textContent = fmtFreq(parseInt(maxSlider.value));
     updateTrack();
 
-    btn.onclick = start;
+    start();
   </script>
 </body>
 </html>
