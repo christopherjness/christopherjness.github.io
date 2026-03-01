@@ -6,81 +6,27 @@
   <title>Pipetroid</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      background: #080808;
-      color: #ccc;
-      font-family: system-ui, -apple-system, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      gap: 14px;
-      padding: 20px;
-      overflow: auto;
-    }
-    canvas {
-      background: #0c0c0c;
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.06);
-      border-radius: 6px;
-      display: block;
-      width: min(500px, calc(100vw - 40px));
-      height: min(500px, calc(100vw - 40px));
-    }
-    #controls {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      color: #555;
-      font-size: 0.78rem;
-      letter-spacing: 0.02em;
-      flex-wrap: wrap;
-      justify-content: center;
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.07);
-      border-radius: 999px;
-      padding: 7px 18px;
-    }
-    #avgSlider { accent-color: #5a9fd4; }
-    #resInfo { color: #3a3a3a; font-size: 0.7rem; white-space: nowrap; }
+    html, body { width: 100%; height: 100%; background: #080808; overflow: hidden; display: flex; justify-content: center; padding: 60px 40px; }
+    canvas { display: block; width: 100%; max-width: 900px; height: 100%; }
   </style>
 </head>
 <body>
-  <canvas id="combined" width="500" height="500"></canvas>
-  <div id="controls">
-    <span id="resInfo"></span>
-    <span style="color:#555;margin-left:10px">avg</span>
-    <input type="range" id="avgSlider" min="0" max="10" step="0.1" value="5"
-           style="width:80px;cursor:pointer">
-    <span id="avgVal" class="freq-val">5s</span>
-    <span style="color:#555;margin-left:6px">dur</span>
-    <input type="range" id="durSlider" min="10" max="60" step="1" value="35"
-           style="width:80px;accent-color:#5a9fd4;cursor:pointer">
-    <span id="durVal" class="freq-val">35s</span>
-  </div>
+  <canvas id="combined"></canvas>
 
   <script>
-    const combCanvas  = document.getElementById('combined');
-    const combCtx     = combCanvas.getContext('2d');
-    const resInfoEl   = document.getElementById('resInfo');
-    const avgSlider   = document.getElementById('avgSlider');
-    const avgValEl    = document.getElementById('avgVal');
-    const durSlider   = document.getElementById('durSlider');
-    const durValEl    = document.getElementById('durVal');
-
-    avgSlider.addEventListener('input', () => {
-      avgValEl.textContent = `${parseFloat(avgSlider.value).toFixed(1)}s`;
-    });
-    durSlider.addEventListener('input', () => {
-      durValEl.textContent = `${durSlider.value}s`;
-    });
+    const combCanvas = document.getElementById('combined');
+    const combCtx    = combCanvas.getContext('2d');
 
     const N_POINTS   = 200;
-    const N_ZOOM_MAX = 8192;    // cap FFT size for real-time performance
-    const RING       = 1 << 18; // 262144 samples ≈ 5.5 s at 48 kHz
+    const N_ZOOM_MAX = 8192;
+    const RING       = 1 << 18;
     const RING_MASK  = RING - 1;
     const ring       = new Float32Array(RING);
     let ringHead = 0, ringFill = 0;
+
+    const AVG_SECS    = 5;
+    const SPECT_SECS  = 30;
+    const MAX_HISTORY = Math.round(AVG_SECS * 60);
 
     function fmtFreq(hz) {
       return hz >= 1000 ? `${(hz / 1000).toFixed(hz % 1000 ? 1 : 0)}k` : `${hz}`;
@@ -117,34 +63,26 @@
       }
     }
 
-    // Convert FFT magnitude to 0–255 (maps –90…0 dBFS → 0…255)
     function magToUint8(mag, N) {
       const dB = 20 * Math.log10(Math.max(1e-15, mag / (N * 0.25)));
       return Math.max(0, Math.min(255, ((dB + 90) / 90 * 255) | 0));
     }
 
-    // Zoom FFT: heterodyne + box-filter decimate + FFT + fftshift
-    // Returns { mags: Uint8Array(N), N, binHz } or null if not enough samples yet
     function computeZoomFFT(minF, maxF, Fs) {
       const BW = maxF - minF;
       const fc = (minF + maxF) / 2;
-      // Decimate so the decimated Nyquist just covers the band
       const D = Math.max(1, Math.floor(Fs / BW));
-      // Largest power-of-2 N such that N*D <= ringFill and N <= N_ZOOM_MAX
       let N = 1;
       while ((N << 1) * D <= ringFill && (N << 1) <= N_ZOOM_MAX) N <<= 1;
       if (N < 4) return null;
       const K = N * D;
 
-      // Extract K most-recent samples from ring buffer into flat array
       const raw = new Float32Array(K);
       const start = (ringHead - K + RING) & RING_MASK;
       const end1  = Math.min(K, RING - start);
       raw.set(ring.subarray(start, start + end1));
       if (end1 < K) raw.set(ring.subarray(0, K - end1), end1);
 
-      // Mix-down (heterodyne to DC) + box-filter decimate
-      // Uses running phasor recurrence to avoid per-sample cos/sin
       const re = new Float32Array(N);
       const im = new Float32Array(N);
       const dpRe = Math.cos(-2 * Math.PI * fc / Fs);
@@ -164,7 +102,6 @@
         im[i] = sIm / D;
       }
 
-      // Hann window
       for (let i = 0; i < N; i++) {
         const w = 0.5 * (1 - Math.cos(2 * Math.PI * i / (N - 1)));
         re[i] *= w;
@@ -173,20 +110,17 @@
 
       fft(re, im);
 
-      // Magnitudes
       const mag = new Float32Array(N);
       for (let i = 0; i < N; i++) mag[i] = Math.sqrt(re[i]*re[i] + im[i]*im[i]);
 
-      // fftshift: swap halves so output is ordered minF → maxF
       const mags = new Uint8Array(N);
       const half = N >> 1;
       for (let i = 0; i < half; i++) mags[i]       = magToUint8(mag[i + half], N);
       for (let i = 0; i < half; i++) mags[i + half] = magToUint8(mag[i],       N);
 
-      return { mags, N, binHz: BW / N };
+      return { mags, N };
     }
 
-    // Thermal colormap: black → blue → cyan → yellow → white
     function heatColor(v, d, px) {
       let r, g, b;
       if (v < 0.25) {
@@ -210,7 +144,6 @@
         const audioCtx = new AudioContext();
         const source   = audioCtx.createMediaStreamSource(stream);
 
-        // ── AudioWorklet for raw sample collection via blob URL ──────────
         const workletSrc = `
           class SampleCollector extends AudioWorkletProcessor {
             process(inputs) {
@@ -241,55 +174,53 @@
           ringFill = Math.min(ringFill + chunk.length, RING);
         };
         source.connect(workletNode);
-        // Worklet outputs silence (no write to outputs[]) — safe to connect to destination
         workletNode.connect(audioCtx.destination);
 
         const Fs = audioCtx.sampleRate;
-
         const MIN_FREQ = 0;
         const MAX_FREQ = 1000;
 
         let history = [];
-
-        const SPECT_W = combCanvas.width;
-        const SPECT_H = combCanvas.height;
         let spectFrames = [];
+        let SPECT_W, SPECT_H, spectImgData, spectPx32, spectIdxAt;
 
-        const spectImgData = combCtx.createImageData(SPECT_W, SPECT_H);
-        const spectPx32    = new Uint32Array(spectImgData.data.buffer);
-
-        // x-pixel → N_POINTS index
-        const spectIdxAt = new Int32Array(SPECT_W);
-        for (let x = 0; x < SPECT_W; x++) {
-          spectIdxAt[x] = Math.min(N_POINTS - 1, Math.round(x / (SPECT_W - 1) * (N_POINTS - 1)));
+        function resizeCanvas() {
+          const rect = combCanvas.getBoundingClientRect();
+          combCanvas.width  = Math.round(rect.width);
+          combCanvas.height = Math.round(rect.height);
+          SPECT_W = combCanvas.width;
+          SPECT_H = combCanvas.height;
+          spectImgData = combCtx.createImageData(SPECT_W, SPECT_H);
+          spectPx32    = new Uint32Array(spectImgData.data.buffer);
+          spectIdxAt   = new Int32Array(SPECT_W);
+          for (let x = 0; x < SPECT_W; x++) {
+            spectIdxAt[x] = Math.min(N_POINTS - 1, Math.round(x / (SPECT_W - 1) * (N_POINTS - 1)));
+          }
         }
+
+        new ResizeObserver(resizeCanvas).observe(combCanvas);
+        resizeCanvas();
 
         function draw() {
           requestAnimationFrame(draw);
 
           const now = performance.now() / 1000;
 
-          // ── Zoom FFT ─────────────────────────────────────────────────────
           const result = computeZoomFFT(MIN_FREQ, MAX_FREQ, Fs);
-          if (!result) return; // ring not filled enough yet
+          if (!result) return;
 
-          const { mags, N, binHz } = result;
+          const { mags, N } = result;
 
-          // Resample N zoom-FFT bins → N_POINTS display points
           const snapshot   = new Uint8Array(N_POINTS);
-          const snapBinIdx = new Uint16Array(N_POINTS); // display point → source FFT bin
+          const snapBinIdx = new Uint16Array(N_POINTS);
           for (let i = 0; i < N_POINTS; i++) {
             const b = Math.min(N - 1, Math.round(i / (N_POINTS - 1) * (N - 1)));
             snapshot[i]   = mags[b];
             snapBinIdx[i] = b;
           }
 
-          resInfoEl.textContent = `${binHz.toFixed(3)} Hz/bin · ${N} pt FFT`;
-
-          // ── Rolling average ──────────────────────────────────────────
-          const maxHistory = Math.max(1, Math.round(parseFloat(avgSlider.value) * 60));
           history.push(snapshot);
-          while (history.length > maxHistory) history.shift();
+          while (history.length > MAX_HISTORY) history.shift();
 
           const avgArray = new Float32Array(N_POINTS);
           for (const frame of history) {
@@ -297,7 +228,6 @@
           }
           for (let i = 0; i < N_POINTS; i++) avgArray[i] /= history.length;
 
-          // ── Peak detection ───────────────────────────────────────────
           const peaks = [];
           for (let i = 1; i < N_POINTS - 1; i++) {
             if (avgArray[i] > 20 && avgArray[i] >= avgArray[i-1] && avgArray[i] >= avgArray[i+1]) {
@@ -306,17 +236,15 @@
           }
           peaks.sort((a, b) => avgArray[b] - avgArray[a]);
 
-          // ── Spectrogram image ─────────────────────────────────────────
-          const SPECT_DURATION = parseInt(durSlider.value);
           spectFrames.push({ time: now, data: Uint8Array.from(avgArray) });
-          const cutoff = now - SPECT_DURATION;
+          const cutoff = now - SPECT_SECS;
           while (spectFrames.length > 0 && spectFrames[0].time < cutoff) spectFrames.shift();
 
           spectPx32.fill(0xFF000000);
           const d = spectImgData.data;
           for (const frame of spectFrames) {
             const age = now - frame.time;
-            const y   = Math.round((1 - age / SPECT_DURATION) * (SPECT_H - 1));
+            const y   = Math.round((1 - age / SPECT_SECS) * (SPECT_H - 1));
             if (y < 0 || y >= SPECT_H) continue;
             const rowBase = y * SPECT_W * 4;
             for (let x = 0; x < SPECT_W; x++) {
@@ -324,7 +252,6 @@
             }
           }
 
-          // ── Combined canvas ───────────────────────────────────────────
           const CW = combCanvas.width;
           const CH = combCanvas.height;
           const LABEL_H   = 26;
@@ -333,11 +260,9 @@
 
           combCtx.putImageData(spectImgData, 0, 0);
 
-          // Dark strip for label area
           combCtx.fillStyle = '#0c0c0c';
           combCtx.fillRect(0, combPlotH, CW, LABEL_H);
 
-          // Semi-transparent spectrum bars
           for (let i = 0; i < N_POINTS; i++) {
             const v    = snapshot[i] / 255;
             const barH = v * combPlotH;
@@ -345,7 +270,6 @@
             combCtx.fillRect(i * combBarW, combPlotH - barH, combBarW, barH);
           }
 
-          // Average line
           combCtx.beginPath();
           combCtx.strokeStyle = 'rgba(255, 210, 60, 0.85)';
           combCtx.lineWidth = 1.5;
@@ -356,7 +280,6 @@
           }
           combCtx.stroke();
 
-          // Peak labels
           combCtx.font = '10px system-ui, sans-serif';
           combCtx.shadowColor = 'rgba(0,0,0,0.95)';
           combCtx.shadowBlur = 5;
@@ -372,7 +295,6 @@
           }
           combCtx.shadowBlur = 0;
 
-          // X-axis labels
           combCtx.font = '10px system-ui, sans-serif';
           for (let t = 0; t <= 5; t++) {
             const freq  = Math.round(MIN_FREQ + (MAX_FREQ - MIN_FREQ) * t / 5);
@@ -380,11 +302,10 @@
             combCtx.strokeStyle = 'rgba(255,255,255,0.12)';
             combCtx.lineWidth = 1;
             combCtx.beginPath(); combCtx.moveTo(px, combPlotH); combCtx.lineTo(px, combPlotH + 4); combCtx.stroke();
-            if (t === 0) continue;
-            const label = fmtFreq(freq);
+            const label = String(freq);
             const tw    = combCtx.measureText(label).width;
             combCtx.fillStyle = '#555';
-            combCtx.fillText(label, Math.min(px - tw / 2, CW - tw - 2), combPlotH + 16);
+            combCtx.fillText(label, Math.max(1, Math.min(px - tw / 2, CW - tw - 2)), combPlotH + 16);
           }
         }
 
