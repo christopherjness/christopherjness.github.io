@@ -9,37 +9,44 @@
     html, body { width: 100%; height: 100%; background: radial-gradient(ellipse at center, #161820 0%, #04040a 100%); overflow: hidden; display: flex; align-items: center; justify-content: center; }
     #frame {
       width: min(500px, 100vw, 100vh);
-      height: min(500px, 100vw, 100vh);
+      height: min(580px, 100vw, 100vh);
       padding: 16px;
       box-sizing: border-box;
       border: 1px solid rgba(180,180,180,0.13);
       border-radius: 10px;
       background: #000;
+      display: flex;
+      flex-direction: column;
     }
-    canvas { display: block; width: 100%; height: 100%; border-radius: 4px; }
+    canvas { display: block; width: 100%; border-radius: 4px; }
+    #spectro  { flex: 7; min-height: 0; }
+    #spectrum { flex: 3; min-height: 0; }
   </style>
 </head>
 <body>
   <div id="frame">
-    <canvas id="combined"></canvas>
+    <canvas id="spectro"></canvas>
+    <canvas id="spectrum"></canvas>
   </div>
 
   <script>
-    const combCanvas = document.getElementById('combined');
-    const combCtx    = combCanvas.getContext('2d');
+    const spectroCanvas  = document.getElementById('spectro');
+    const spectroCtx     = spectroCanvas.getContext('2d');
+    const spectrumCanvas = document.getElementById('spectrum');
+    const spectrumCtx    = spectrumCanvas.getContext('2d');
 
-    const N_POINTS     = 200;
-    const N_ZOOM_MAX   = 8192;
-    const RING         = 1 << 18;
-    const RING_MASK    = RING - 1;
-    const ring         = new Float32Array(RING);
+    const N_POINTS   = 200;
+    const N_ZOOM_MAX = 8192;
+    const RING       = 1 << 18;
+    const RING_MASK  = RING - 1;
+    const ring       = new Float32Array(RING);
     let ringHead = 0, ringFill = 0;
 
-    const AVG_SECS     = 1;
-    const SPECT_SECS   = 30;
-    const MAX_HISTORY  = Math.round(AVG_SECS * 60);
-    const TARGET_FPS   = 30;
-    const FRAME_MS     = 1000 / TARGET_FPS;
+    const AVG_SECS   = 1;
+    const SPECT_SECS = 10;
+    const MAX_HISTORY = Math.round(AVG_SECS * 60);
+    const TARGET_FPS  = 30;
+    const FRAME_MS    = 1000 / TARGET_FPS;
 
     function fmtFreq(hz) {
       return hz >= 1000 ? `${(hz / 1000).toFixed(hz % 1000 ? 1 : 0)}k` : `${hz}`;
@@ -86,6 +93,7 @@
       const fc = (minF + maxF) / 2;
       const D  = Math.max(1, Math.floor(Fs / BW));
       let N = 1;
+      if (ringFill < RING) return null;
       while ((N << 1) * D <= ringFill && (N << 1) <= N_ZOOM_MAX) N <<= 1;
       if (N < 4) return null;
       const K = N * D;
@@ -113,7 +121,7 @@
       }
 
       for (let i = 0; i < N; i++) {
-        const w = 0.5 * (1 - Math.cos(2 * Math.PI * i / (N - 1)));
+        const w = 0.9 + 0.1 * Math.cos(2 * Math.PI * i / (N - 1));
         re[i] *= w;  im[i] *= w;
       }
 
@@ -130,7 +138,7 @@
       return { mags, N };
     }
 
-    // Precomputed heat colormap LUT (Uint32 RGBA little-endian, index 0–255)
+    // Precomputed heat colormap LUT
     const heatPx32 = (() => {
       const lut = new Uint32Array(256);
       for (let idx = 0; idx < 256; idx++) {
@@ -183,9 +191,9 @@
 
         const Fs       = audioCtx.sampleRate;
         const MIN_FREQ = 0;
-        const MAX_FREQ = 1000;
+        const MAX_FREQ = 500;
 
-        // Precomputed bar colour strings (avoid template literals each frame)
+        // Precomputed bar colour LUT
         const barColorStr = (() => {
           const lut = new Array(256);
           for (let idx = 0; idx < 256; idx++) {
@@ -198,47 +206,35 @@
           return lut;
         })();
 
-        let currentDpr = window.devicePixelRatio || 1;
+        let SPECT_W, SPECT_H, SPECTRUM_W, SPECTRUM_H;
+        let spectImgData, spectPx32, spectIdxAt;
         let history = [];
         const runningSum = new Float32Array(N_POINTS);
-        let SPECT_W, SPECT_H, spectImgData, spectPx32, spectIdxAt;
         let lastSpectT = 0;
         let lastFrameT = 0;
-        let fadeGrad = null, cachedFadePlotH = -1, cachedFadeCH = -1;
 
-        function resizeCanvas() {
-          const dpr  = window.devicePixelRatio || 1;
-          const rect = combCanvas.getBoundingClientRect();
-          const newW = Math.round(rect.width  * dpr);
-          const newH = Math.round(rect.height * dpr);
-          if (newW === SPECT_W && newH === SPECT_H) return;
+        function resizeCanvases() {
+          const dpr        = window.devicePixelRatio || 1;
+          const spectroRect  = spectroCanvas.getBoundingClientRect();
+          const spectrumRect = spectrumCanvas.getBoundingClientRect();
 
-          // Scale existing spectrogram into new dimensions
-          let prevCanvas = null;
-          if (spectImgData) {
-            prevCanvas = document.createElement('canvas');
-            prevCanvas.width  = SPECT_W;
-            prevCanvas.height = SPECT_H;
-            prevCanvas.getContext('2d').putImageData(spectImgData, 0, 0);
-          }
+          spectroCanvas.width  = Math.round(spectroRect.width  * dpr);
+          spectroCanvas.height = Math.round(spectroRect.height * dpr);
+          spectrumCanvas.width  = Math.round(spectrumRect.width  * dpr);
+          spectrumCanvas.height = Math.round(spectrumRect.height * dpr);
 
-          combCanvas.width  = newW;
-          combCanvas.height = newH;
-          SPECT_W = newW;
-          SPECT_H = newH;
-          currentDpr = dpr;
-          combCtx.scale(dpr, dpr);  // draw in CSS px; canvas stores at physical px
+          SPECT_W   = spectroCanvas.width;
+          SPECT_H   = spectroCanvas.height;
+          SPECTRUM_W = spectrumCanvas.width;
+          SPECTRUM_H = spectrumCanvas.height;
 
-          if (prevCanvas) {
-            const tmp = document.createElement('canvas');
-            tmp.width  = SPECT_W;
-            tmp.height = SPECT_H;
-            tmp.getContext('2d').drawImage(prevCanvas, 0, 0, SPECT_W, SPECT_H);
-            spectImgData = tmp.getContext('2d').getImageData(0, 0, SPECT_W, SPECT_H);
-          } else {
-            spectImgData = combCtx.createImageData(SPECT_W, SPECT_H);
-            new Uint32Array(spectImgData.data.buffer).fill(0xFF000000);
-          }
+          spectroCtx.setTransform(1,0,0,1,0,0);
+          spectrumCtx.setTransform(1,0,0,1,0,0);
+          spectroCtx.scale(dpr, dpr);
+          spectrumCtx.scale(dpr, dpr);
+
+          spectImgData = new ImageData(SPECT_W, SPECT_H);
+          new Uint32Array(spectImgData.data.buffer).fill(0xFF000000);
           spectPx32  = new Uint32Array(spectImgData.data.buffer);
           spectIdxAt = new Int32Array(SPECT_W);
           for (let x = 0; x < SPECT_W; x++) {
@@ -246,8 +242,8 @@
           }
         }
 
-        new ResizeObserver(resizeCanvas).observe(combCanvas);
-        resizeCanvas();
+        new ResizeObserver(resizeCanvases).observe(document.getElementById('frame'));
+        resizeCanvases();
 
         function draw(ts) {
           requestAnimationFrame(draw);
@@ -286,7 +282,7 @@
           }
           peaks.sort((a, b) => avgArray[b] - avgArray[a]);
 
-          // ── Scrolling spectrogram — O(W) per frame instead of O(W×frames) ──
+          // ── Scrolling spectrogram ──
           if (lastSpectT === 0) lastSpectT = now;
           const rowsPerSec = SPECT_H / SPECT_SECS;
           const newRows    = Math.min(SPECT_H, Math.floor((now - lastSpectT) * rowsPerSec));
@@ -301,92 +297,91 @@
             }
             lastSpectT += newRows / rowsPerSec;
           }
+          spectroCtx.putImageData(spectImgData, 0, 0);
 
-          // ── Render ────────────────────────────────────────────────────────
-          const CW       = combCanvas.width  / currentDpr;
-          const CH       = combCanvas.height / currentDpr;
-          const LABEL_H  = 38;
-          const FADE_H   = 40;
-          const plotH    = CH - LABEL_H;
-          const barW     = CW / N_POINTS;
-          const fontSize = 10;
+          // ── Spectrum plot ──
+          const dpr    = window.devicePixelRatio || 1;
+          const SW     = SPECTRUM_W / dpr;
+          const SH     = SPECTRUM_H / dpr;
+          const plotH  = SH - 40;
+          const barW   = SW / N_POINTS;
+          const FSIZE  = 12;
 
-          combCtx.putImageData(spectImgData, 0, 0);
+          spectrumCtx.clearRect(0, 0, SW, SH);
+          spectrumCtx.fillStyle = '#000';
+          spectrumCtx.fillRect(0, 0, SW, SH);
 
-          // Spectrum bars
+          // Bars (live signal)
           for (let i = 0; i < N_POINTS; i++) {
-            const v    = snapshot[i] / 255;
-            const barH = v * plotH;
-            combCtx.fillStyle = barColorStr[snapshot[i]];
-            combCtx.fillRect(i * barW, plotH - barH, barW, barH);
+            const barH = (snapshot[i] / 255) * plotH;
+            spectrumCtx.fillStyle = barColorStr[snapshot[i]];
+            spectrumCtx.fillRect(i * barW, SH - 40 - barH, barW, barH);
           }
 
-          // Average line with glow
-          combCtx.beginPath();
+          // Average line
+          spectrumCtx.beginPath();
           for (let i = 0; i < N_POINTS; i++) {
             const x = i * barW + barW / 2;
-            const y = plotH - (avgArray[i] / 255) * plotH;
-            i === 0 ? combCtx.moveTo(x, y) : combCtx.lineTo(x, y);
+            const y = SH - 40 - (avgArray[i] / 255) * plotH;
+            i === 0 ? spectrumCtx.moveTo(x, y) : spectrumCtx.lineTo(x, y);
           }
-          combCtx.shadowColor = 'rgba(255,200,40,0.55)';
-          combCtx.shadowBlur  = 10;
-          combCtx.strokeStyle = 'rgba(255,215,60,0.9)';
-          combCtx.lineWidth   = 1.5;
-          combCtx.stroke();
-          combCtx.shadowBlur  = 0;
+          spectrumCtx.shadowColor = 'rgba(255,200,40,0.55)';
+          spectrumCtx.shadowBlur  = 10;
+          spectrumCtx.strokeStyle = 'rgba(255,215,60,0.9)';
+          spectrumCtx.lineWidth   = 1.5;
+          spectrumCtx.stroke();
+          spectrumCtx.shadowBlur  = 0;
 
-          // Gradient fade into label strip (cached, recreated only on resize)
-          if (plotH !== cachedFadePlotH || CH !== cachedFadeCH) {
-            fadeGrad = combCtx.createLinearGradient(0, plotH - FADE_H, 0, CH);
-            fadeGrad.addColorStop(0,   'rgba(0,0,0,0)');
-            fadeGrad.addColorStop(0.5, 'rgba(0,0,0,0.85)');
-            fadeGrad.addColorStop(1,   'rgba(0,0,0,1)');
-            cachedFadePlotH = plotH;
-            cachedFadeCH    = CH;
+          // Axis line
+          spectrumCtx.strokeStyle = '#888';
+          spectrumCtx.lineWidth   = 1;
+          spectrumCtx.beginPath();
+          spectrumCtx.moveTo(0, SH - 40);
+          spectrumCtx.lineTo(SW, SH - 40);
+          spectrumCtx.stroke();
+
+          // X-axis ticks + frequency labels
+          spectrumCtx.font = `${FSIZE}px system-ui, sans-serif`;
+          for (let t = 0; t <= 5; t++) {
+            const freq = Math.round(MIN_FREQ + (MAX_FREQ - MIN_FREQ) * t / 5);
+            const px   = (t / 5) * SW;
+            spectrumCtx.strokeStyle = 'rgba(255,255,255,0.4)';
+            spectrumCtx.beginPath();
+            spectrumCtx.moveTo(px, SH - 40);
+            spectrumCtx.lineTo(px, SH - 30);
+            spectrumCtx.stroke();
+            const label = fmtFreq(freq);
+            const tw    = spectrumCtx.measureText(label).width;
+            const lx    = Math.max(0, Math.min(SW - tw, px - tw / 2));
+            spectrumCtx.fillStyle = 'rgba(255,255,255,0.7)';
+            spectrumCtx.fillText(label, lx, SH - 20);
           }
-          combCtx.fillStyle = fadeGrad;
-          combCtx.fillRect(0, plotH - FADE_H, CW, LABEL_H + FADE_H);
+
+          // X-axis title
+          spectrumCtx.fillStyle = 'rgba(255,255,255,0.85)';
+          const title  = 'Frequency [Hz]';
+          const titleW = spectrumCtx.measureText(title).width;
+          spectrumCtx.fillText(title, (SW - titleW) / 2, SH - 4);
 
           // Peak labels — pill style
-          combCtx.font = `${fontSize}px system-ui, sans-serif`;
+          spectrumCtx.font = `${FSIZE}px system-ui, sans-serif`;
           for (let p = 0; p < Math.min(3, peaks.length); p++) {
             const i     = peaks[p];
             const freq  = Math.round(MIN_FREQ + snapBinIdx[i] / (N - 1) * (MAX_FREQ - MIN_FREQ));
             const x     = i * barW + barW / 2;
-            const y     = plotH - (avgArray[i] / 255) * plotH;
+            const y     = SH - 40 - (avgArray[i] / 255) * plotH;
             const label = fmtFreq(freq);
-            const tw    = combCtx.measureText(label).width;
-            const lx    = Math.max(tw / 2 + 6, Math.min(CW - tw / 2 - 6, x));
-            const ly    = Math.max(fontSize + 4, y - 10);
+            const tw    = spectrumCtx.measureText(label).width;
+            const lx    = Math.max(tw / 2 + 6, Math.min(SW - tw / 2 - 6, x));
+            const ly    = Math.max(FSIZE + 4, y - 10);
             const pad   = 5;
-            combCtx.fillStyle = 'rgba(0,0,0,0.55)';
-            combCtx.beginPath();
-            combCtx.roundRect(lx - tw / 2 - pad, ly - fontSize - 2, tw + pad * 2, fontSize + 6, 4);
-            combCtx.fill();
-            combCtx.fillStyle = 'rgba(180,215,255,0.95)';
-            combCtx.fillText(label, lx - tw / 2, ly);
+            spectrumCtx.fillStyle = 'rgba(0,0,0,0.55)';
+            spectrumCtx.beginPath();
+            spectrumCtx.roundRect(lx - tw / 2 - pad, ly - FSIZE - 2, tw + pad * 2, FSIZE + 6, 4);
+            spectrumCtx.fill();
+            spectrumCtx.fillStyle = 'rgba(180,215,255,0.95)';
+            spectrumCtx.fillText(label, lx - tw / 2, ly);
           }
-
-          // X-axis tick marks and frequency numbers
-          combCtx.font = `${fontSize}px system-ui, sans-serif`;
-          for (let t = 0; t <= 5; t++) {
-            const freq  = Math.round(MIN_FREQ + (MAX_FREQ - MIN_FREQ) * t / 5);
-            const px    = (t / 5) * CW;
-            combCtx.strokeStyle = 'rgba(255,255,255,0.4)';
-            combCtx.lineWidth   = 1;
-            combCtx.beginPath(); combCtx.moveTo(px, plotH); combCtx.lineTo(px, plotH + 4); combCtx.stroke();
-            const label = String(freq);
-            const tw    = combCtx.measureText(label).width;
-            combCtx.fillStyle = 'rgba(255,255,255,0.85)';
-            combCtx.fillText(label, Math.max(1, Math.min(px - tw / 2, CW - tw - 2)), plotH + 16);
-          }
-
-          // X-axis title
-          combCtx.font = `${fontSize}px system-ui, sans-serif`;
-          combCtx.fillStyle = 'rgba(255,255,255,0.85)';
-          const title = 'Frequency [Hz]';
-          const titleW = combCtx.measureText(title).width;
-          combCtx.fillText(title, (CW - titleW) / 2, CH - 4);
         }
 
         requestAnimationFrame(draw);
