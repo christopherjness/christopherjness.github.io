@@ -42,7 +42,7 @@
     const ring       = new Float32Array(RING);
     let ringHead = 0, ringFill = 0;
 
-    const AVG_SECS   = 0.1;
+    const AVG_SECS   = .1;
     const SPECT_SECS = 10;
     const MAX_HISTORY = Math.round(AVG_SECS * 60);
     const TARGET_FPS  = 30;
@@ -199,6 +199,7 @@
         let history = [];
         const runningSum = new Float32Array(N_POINTS);
         let lastSpectT = 0;
+        let spectRowAcc = 0;
         let lastFrameT = 0;
 
         function resizeCanvases() {
@@ -206,10 +207,24 @@
           const spectroRect  = spectroCanvas.getBoundingClientRect();
           const spectrumRect = spectrumCanvas.getBoundingClientRect();
 
-          spectroCanvas.width  = Math.round(spectroRect.width  * dpr);
-          spectroCanvas.height = Math.round(spectroRect.height * dpr);
-          spectrumCanvas.width  = Math.round(spectrumRect.width  * dpr);
-          spectrumCanvas.height = Math.round(spectrumRect.height * dpr);
+          const nextSpectroW  = Math.round(spectroRect.width  * dpr);
+          const nextSpectroH  = Math.round(spectroRect.height * dpr);
+          const nextSpectrumW = Math.round(spectrumRect.width  * dpr);
+          const nextSpectrumH = Math.round(spectrumRect.height * dpr);
+
+          if (
+            spectroCanvas.width === nextSpectroW &&
+            spectroCanvas.height === nextSpectroH &&
+            spectrumCanvas.width === nextSpectrumW &&
+            spectrumCanvas.height === nextSpectrumH
+          ) {
+            return;
+          }
+
+          spectroCanvas.width  = nextSpectroW;
+          spectroCanvas.height = nextSpectroH;
+          spectrumCanvas.width  = nextSpectrumW;
+          spectrumCanvas.height = nextSpectrumH;
 
           SPECT_W   = spectroCanvas.width;
           SPECT_H   = spectroCanvas.height;
@@ -228,6 +243,8 @@
           for (let x = 0; x < SPECT_W; x++) {
             spectIdxAt[x] = Math.min(N_POINTS - 1, Math.round(x / (SPECT_W - 1) * (N_POINTS - 1)));
           }
+          lastSpectT = 0;
+          spectRowAcc = 0;
         }
 
         new ResizeObserver(resizeCanvases).observe(document.getElementById('frame'));
@@ -273,8 +290,11 @@
           // ── Scrolling spectrogram ──
           if (lastSpectT === 0) lastSpectT = now;
           const rowsPerSec = SPECT_H / SPECT_SECS;
-          const newRows    = Math.min(SPECT_H, Math.floor((now - lastSpectT) * rowsPerSec));
+          spectRowAcc += (now - lastSpectT) * rowsPerSec;
+          lastSpectT = now;
+          const newRows = Math.min(SPECT_H, Math.floor(spectRowAcc));
           if (newRows > 0) {
+            spectRowAcc -= newRows;
             const keepRows = SPECT_H - newRows;
             if (keepRows > 0) spectPx32.copyWithin(0, newRows * SPECT_W);
             for (let row = keepRows; row < SPECT_H; row++) {
@@ -283,7 +303,6 @@
                 spectPx32[rowBase + x] = heatPx32[avgArray[spectIdxAt[x]] | 0];
               }
             }
-            lastSpectT += newRows / rowsPerSec;
           }
           spectroCtx.putImageData(spectImgData, 0, 0);
 
