@@ -8,25 +8,25 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; background: radial-gradient(ellipse at center, #161820 0%, #04040a 100%); overflow: hidden; display: flex; align-items: center; justify-content: center; }
     #frame {
-      width: min(500px, 100vw, 100vh);
-      height: min(580px, 100vw, 100vh);
+      width: min(900px, 100vw, 100vh * 1.8);
+      height: min(500px, 100vw, 100vh);
       padding: 16px;
       box-sizing: border-box;
       border: 1px solid rgba(180,180,180,0.13);
       border-radius: 10px;
       background: #000;
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
+      gap: 12px;
     }
-    canvas { display: block; width: 100%; border-radius: 4px; }
-    #spectro  { flex: 7; min-height: 0; }
-    #spectrum { flex: 3; min-height: 0; }
+    canvas { display: block; width: 100%; height: 100%; border-radius: 4px; }
+    #spectro, #spectrum { flex: 1; min-width: 0; min-height: 0; }
   </style>
 </head>
 <body>
   <div id="frame">
-    <canvas id="spectro"></canvas>
     <canvas id="spectrum"></canvas>
+    <canvas id="spectro"></canvas>
   </div>
 
   <script>
@@ -36,13 +36,13 @@
     const spectrumCtx    = spectrumCanvas.getContext('2d');
 
     const N_POINTS   = 200;
-    const N_ZOOM_MAX = 8192;
+    const N_FFT_MAX  = 8192;
     const RING       = 1 << 18;
     const RING_MASK  = RING - 1;
     const ring       = new Float32Array(RING);
     let ringHead = 0, ringFill = 0;
 
-    const AVG_SECS   = 1;
+    const AVG_SECS   = 0.1;
     const SPECT_SECS = 10;
     const MAX_HISTORY = Math.round(AVG_SECS * 60);
     const TARGET_FPS  = 30;
@@ -88,54 +88,42 @@
       return Math.max(0, Math.min(255, ((dB + 90) / 90 * 255) | 0));
     }
 
-    function computeZoomFFT(minF, maxF, Fs) {
-      const BW = maxF - minF;
-      const fc = (minF + maxF) / 2;
-      const D  = Math.max(1, Math.floor(Fs / BW));
+    function computeSimpleFFT(minF, maxF, Fs) {
+      if (ringFill < 1024) return null;
+
       let N = 1;
-      if (ringFill < RING) return null;
-      while ((N << 1) * D <= ringFill && (N << 1) <= N_ZOOM_MAX) N <<= 1;
+      while ((N << 1) <= ringFill && (N << 1) <= N_FFT_MAX) N <<= 1;
       if (N < 4) return null;
-      const K = N * D;
 
-      const raw   = new Float32Array(K);
-      const start = (ringHead - K + RING) & RING_MASK;
-      const end1  = Math.min(K, RING - start);
-      raw.set(ring.subarray(start, start + end1));
-      if (end1 < K) raw.set(ring.subarray(0, K - end1), end1);
+      const re = new Float32Array(N);
+      const im = new Float32Array(N);
 
-      const re   = new Float32Array(N);
-      const im   = new Float32Array(N);
-      const dpRe = Math.cos(-2 * Math.PI * fc / Fs);
-      const dpIm = Math.sin(-2 * Math.PI * fc / Fs);
-      let phRe = 1, phIm = 0;
-      for (let i = 0; i < N; i++) {
-        let sRe = 0, sIm = 0;
-        for (let d = 0; d < D; d++) {
-          const x = raw[i * D + d];
-          sRe += x * phRe;  sIm += x * phIm;
-          const nRe = phRe * dpRe - phIm * dpIm;
-          phIm = phRe * dpIm + phIm * dpRe;  phRe = nRe;
-        }
-        re[i] = sRe / D;  im[i] = sIm / D;
-      }
+      const start = (ringHead - N + RING) & RING_MASK;
+      const end1  = Math.min(N, RING - start);
+      re.set(ring.subarray(start, start + end1));
+      if (end1 < N) re.set(ring.subarray(0, N - end1), end1);
 
       for (let i = 0; i < N; i++) {
-        const w = 0.9 + 0.1 * Math.cos(2 * Math.PI * i / (N - 1));
-        re[i] *= w;  im[i] *= w;
+        const w = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (N - 1));
+        re[i] *= w;
       }
 
       fft(re, im);
 
-      const mag  = new Float32Array(N);
-      for (let i = 0; i < N; i++) mag[i] = Math.sqrt(re[i]*re[i] + im[i]*im[i]);
-
-      const mags = new Uint8Array(N);
       const half = N >> 1;
-      for (let i = 0; i < half; i++) mags[i]       = magToUint8(mag[i + half], N);
-      for (let i = 0; i < half; i++) mags[i + half] = magToUint8(mag[i],       N);
+      const minBin = Math.max(0, Math.floor(minF * N / Fs));
+      const maxBin = Math.min(half, Math.ceil(maxF * N / Fs));
+      if (maxBin <= minBin) return null;
 
-      return { mags, N };
+      const outN = maxBin - minBin + 1;
+      const mags = new Uint8Array(outN);
+      for (let i = 0; i < outN; i++) {
+        const k = minBin + i;
+        const mag = Math.sqrt(re[k] * re[k] + im[k] * im[k]);
+        mags[i] = magToUint8(mag, N);
+      }
+
+      return { mags, N: outN };
     }
 
     // Precomputed heat colormap LUT
@@ -191,7 +179,7 @@
 
         const Fs       = audioCtx.sampleRate;
         const MIN_FREQ = 0;
-        const MAX_FREQ = 500;
+        const MAX_FREQ = 800;
 
         // Precomputed bar colour LUT
         const barColorStr = (() => {
@@ -252,7 +240,7 @@
 
           const now = ts / 1000;
 
-          const result = computeZoomFFT(MIN_FREQ, MAX_FREQ, Fs);
+          const result = computeSimpleFFT(MIN_FREQ, MAX_FREQ, Fs);
           if (!result) return;
 
           const { mags, N } = result;
@@ -300,12 +288,16 @@
           spectroCtx.putImageData(spectImgData, 0, 0);
 
           // ── Spectrum plot ──
-          const dpr    = window.devicePixelRatio || 1;
-          const SW     = SPECTRUM_W / dpr;
-          const SH     = SPECTRUM_H / dpr;
-          const plotH  = SH - 40;
-          const barW   = SW / N_POINTS;
-          const FSIZE  = 12;
+          const dpr       = window.devicePixelRatio || 1;
+          const SW        = SPECTRUM_W / dpr;
+          const SH        = SPECTRUM_H / dpr;
+          const AXIS_H    = 40;
+          const plotSize  = Math.min(SW, SH - AXIS_H);
+          const plotLeft  = (SW - plotSize) / 2;
+          const plotRight = plotLeft + plotSize;
+          const baseY     = SH - AXIS_H;
+          const barW      = plotSize / N_POINTS;
+          const FSIZE     = 12;
 
           spectrumCtx.clearRect(0, 0, SW, SH);
           spectrumCtx.fillStyle = '#000';
@@ -313,16 +305,16 @@
 
           // Bars (live signal)
           for (let i = 0; i < N_POINTS; i++) {
-            const barH = (snapshot[i] / 255) * plotH;
+            const barH = (snapshot[i] / 255) * plotSize;
             spectrumCtx.fillStyle = barColorStr[snapshot[i]];
-            spectrumCtx.fillRect(i * barW, SH - 40 - barH, barW, barH);
+            spectrumCtx.fillRect(plotLeft + i * barW, baseY - barH, barW, barH);
           }
 
           // Average line
           spectrumCtx.beginPath();
           for (let i = 0; i < N_POINTS; i++) {
-            const x = i * barW + barW / 2;
-            const y = SH - 40 - (avgArray[i] / 255) * plotH;
+            const x = plotLeft + i * barW + barW / 2;
+            const y = baseY - (avgArray[i] / 255) * plotSize;
             i === 0 ? spectrumCtx.moveTo(x, y) : spectrumCtx.lineTo(x, y);
           }
           spectrumCtx.shadowColor = 'rgba(255,200,40,0.55)';
@@ -336,23 +328,23 @@
           spectrumCtx.strokeStyle = '#888';
           spectrumCtx.lineWidth   = 1;
           spectrumCtx.beginPath();
-          spectrumCtx.moveTo(0, SH - 40);
-          spectrumCtx.lineTo(SW, SH - 40);
+          spectrumCtx.moveTo(plotLeft, baseY);
+          spectrumCtx.lineTo(plotRight, baseY);
           spectrumCtx.stroke();
 
           // X-axis ticks + frequency labels
           spectrumCtx.font = `${FSIZE}px system-ui, sans-serif`;
           for (let t = 0; t <= 5; t++) {
             const freq = Math.round(MIN_FREQ + (MAX_FREQ - MIN_FREQ) * t / 5);
-            const px   = (t / 5) * SW;
+            const px   = plotLeft + (t / 5) * plotSize;
             spectrumCtx.strokeStyle = 'rgba(255,255,255,0.4)';
             spectrumCtx.beginPath();
-            spectrumCtx.moveTo(px, SH - 40);
-            spectrumCtx.lineTo(px, SH - 30);
+            spectrumCtx.moveTo(px, baseY);
+            spectrumCtx.lineTo(px, baseY + 10);
             spectrumCtx.stroke();
             const label = fmtFreq(freq);
             const tw    = spectrumCtx.measureText(label).width;
-            const lx    = Math.max(0, Math.min(SW - tw, px - tw / 2));
+            const lx    = Math.max(plotLeft, Math.min(plotRight - tw, px - tw / 2));
             spectrumCtx.fillStyle = 'rgba(255,255,255,0.7)';
             spectrumCtx.fillText(label, lx, SH - 20);
           }
@@ -361,18 +353,18 @@
           spectrumCtx.fillStyle = 'rgba(255,255,255,0.85)';
           const title  = 'Frequency [Hz]';
           const titleW = spectrumCtx.measureText(title).width;
-          spectrumCtx.fillText(title, (SW - titleW) / 2, SH - 4);
+          spectrumCtx.fillText(title, plotLeft + (plotSize - titleW) / 2, SH - 4);
 
           // Peak labels — pill style
           spectrumCtx.font = `${FSIZE}px system-ui, sans-serif`;
           for (let p = 0; p < Math.min(3, peaks.length); p++) {
             const i     = peaks[p];
             const freq  = Math.round(MIN_FREQ + snapBinIdx[i] / (N - 1) * (MAX_FREQ - MIN_FREQ));
-            const x     = i * barW + barW / 2;
-            const y     = SH - 40 - (avgArray[i] / 255) * plotH;
+            const x     = plotLeft + i * barW + barW / 2;
+            const y     = baseY - (avgArray[i] / 255) * plotSize;
             const label = fmtFreq(freq);
             const tw    = spectrumCtx.measureText(label).width;
-            const lx    = Math.max(tw / 2 + 6, Math.min(SW - tw / 2 - 6, x));
+            const lx    = Math.max(plotLeft + tw / 2 + 6, Math.min(plotRight - tw / 2 - 6, x));
             const ly    = Math.max(FSIZE + 4, y - 10);
             const pad   = 5;
             spectrumCtx.fillStyle = 'rgba(0,0,0,0.55)';
