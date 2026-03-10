@@ -507,14 +507,13 @@ void rod_rod_collision_force(
                                             r_A_eff, r_B_eff, r_c, avg_inert_A, avg_inert_B);
     float3 incr   = rv_t * dt;
     float3 cur_dt = old_interaction + incr;
-    // Direct store — only one thread ever writes this pair's slot
-    *new_interaction = cur_dt;
 
-    float  cur_dt_m = mag3(cur_dt);
-    float3 t_dir    = (rv_t_m   > 1e-8f) ? norm3(rv_t)   :
-                      (cur_dt_m > 1e-8f) ? norm3(cur_dt) : float3(0.0f);
+    float  cur_dt_m     = mag3(cur_dt);
+    // Bug 1 fix: spring force uses displacement direction; Coulomb cap uses velocity direction
+    float3 t_dir_spring = (cur_dt_m > 1e-8f) ? norm3(cur_dt) : float3(0.0f);
+    float3 t_dir_slip   = (rv_t_m   > 1e-8f) ? norm3(rv_t)   : t_dir_spring;
 
-    float3 Tsf_A = t_dir * cur_dt_m * kt;
+    float3 Tsf_A = t_dir_spring * cur_dt_m * kt;
 
     float3 Tdf_A = float3(0.0f);
     if (!gen_phase) {
@@ -523,10 +522,17 @@ void rod_rod_collision_force(
         Tdf_A = rv_t * dc_t;
     }
 
-    float3 tang_A     = Tsf_A + Tdf_A;
-    float3 fric_A     = t_dir * mu_eff * mag3(Nf_A);
+    float3 tang_A = Tsf_A + Tdf_A;
+    float3 fric_A = t_dir_slip * mu_eff * mag3(Nf_A);
 
-    float3 Tf_A = (mag3(tang_A) <= mu_eff * mag3(Nf_A)) ? tang_A : fric_A;
+    bool   sliding = mag3(tang_A) > mu_eff * mag3(Nf_A);
+    float3 Tf_A    = sliding ? fric_A : tang_A;
+
+    // Bug 2 fix: clamp stored displacement so spring doesn't overextend during sliding
+    if (sliding && kt > 0.0f)
+        cur_dt = t_dir_slip * (mu_eff * mag3(Nf_A) / kt);
+    // Direct store — only one thread ever writes this pair's slot
+    *new_interaction = cur_dt;
 
     float3 Tf_B = Tf_A * (-1.0f);
     float3 Tt_A = cross3(r_Ac, Tf_A);
