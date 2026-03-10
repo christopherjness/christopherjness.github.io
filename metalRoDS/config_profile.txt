@@ -1,0 +1,102 @@
+metallib_path = rods_kernels.metallib
+
+random_seed = 42
+
+num_particles = 256
+
+radius_1 = 1.0
+radius_2 = 1.4
+prop_1 = 0.5
+prop_2 = 0.5
+
+aspect = 5
+
+set_vol_frac = true
+volume_fraction = 0.1
+safe_generation = true
+fixed_sys_size = false
+oop = 0.99
+ref_direction = [1.0, 0.0, 0.0]
+
+from_poly_file = true
+poly_file = particles_profile.txt
+
+special_generation = true
+relaxed_ke_thresh = 1000
+timesteps_per_check = 500
+intial_vf = 0.05
+allow_rotations = true
+drag_on_free_only = true
+delta_vf_step_size = 0.02
+
+density = 1.0
+kn = 1500000
+en = 0.5
+et = 0.5
+friction_coef = 0.5
+max_tvelo = 0.0
+max_avelo = 0.0
+system_dimensions = [61.0, 61.0, 61.0]
+periodic_boundaries = [1, 1, 1]
+
+fluid_viscosity = 15
+fluid_density = 1
+
+lub_min_sep = 0.025
+lub_max_sep = 0.9
+
+ss_manual_weight = 0.1
+es_manual_weight = 1.0
+ee_manual_weight = 5.0
+
+gravity = false
+grav_dir = [0, 0, -1.0]
+
+contact_toggle = 1
+friction_toggle = 1
+lub_toggle = 1
+drag_toggle = 1
+lift_toggle = 1
+
+fixed_stress = 0
+controller_gain = 0.00001
+
+set_uniform_gradient = true
+uniform_gradient = 0.05
+
+fluid_velocity_profile = [0, -1.0]
+fixed_stress_profile = [1]
+
+order_ref_direction = [1, 0, 0]
+
+dt = 0.00002
+dynamic_dt = true
+dynamic_dt_range = 100
+dyn_dt_scale = 1
+
+time_steps = 50000
+
+doFluidOut = false
+doVisOut = true
+doSimpleOut = true
+doCheckpointOut = true
+
+use_strains = false
+
+cut_off = 2000000.0
+print_interval = 0.1
+save_interval = 0.1
+full_info_interval = 0.1
+
+save_name = output_profile
+file_path =
+
+load_system = false
+load_data_location =
+starting_time_step = 1
+positions_only = true
+continue_sim = false
+
+TPB = 256
+TPB2 = 16
+TPB3 = 256

@@ -1,0 +1,285 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath, amssymb, bm}
+\usepackage[margin=2.5cm]{geometry}
+
+\newcommand{\bs}[1]{\boldsymbol{#1}}
+\newcommand{\dd}{\,\mathrm{d}}
+
+\title{Physics of the Rod DEM Simulation}
+\date{}
+
+\begin{document}
+\maketitle
+
+% ──────────────────────────────────────────────────────────
+\section{Particle Geometry}
+
+Each particle is a \textit{spherocylinder}: a cylindrical shaft of radius $r$
+and shaft length $L_s = L - 2r$ capped by two hemispheres, where $L$ is the
+total tip-to-tip length.  The particle orientation is described by a unit vector
+$\hat{\bs{e}}$.
+
+\paragraph{Volume.}
+\begin{equation}
+  V = \tfrac{4}{3}\pi r^3 + \pi r^2 L_s
+\end{equation}
+
+\paragraph{Mass.}
+\begin{equation}
+  m = \rho V
+\end{equation}
+
+\paragraph{Moments of inertia} (with $z$ along $\hat{\bs{e}}$):
+\begin{align}
+  I_{xx} = I_{yy} &= \pi\rho\!\left(
+      \tfrac{1}{12}r^2 L_s^3
+    + \tfrac{8}{15}r^5
+    + \tfrac{1}{3}r^3 L_s^2
+    + \tfrac{3}{4}r^4 L_s
+  \right) \\
+  I_{zz} &= \pi\rho\!\left(
+      \tfrac{1}{2}r^4 L_s
+    + \tfrac{8}{15}r^5
+  \right)
+\end{align}
+
+% ──────────────────────────────────────────────────────────
+\section{Equations of Motion}
+
+\begin{align}
+  m\ddot{\bs{x}} &= \bs{F}_\text{contact} + \bs{F}_\text{lub}
+                   + \bs{F}_\text{drag} + \bs{F}_\text{lift} \\
+  \bs{I}\dot{\bs{\omega}} &= \bs{\tau}_\text{contact} + \bs{\tau}_\text{lub}
+                            + \bs{\tau}_\text{fluid}
+\end{align}
+
+where $\bs{I} = \mathrm{diag}(I_{xx}, I_{yy}, I_{zz})$ in the particle frame.
+
+% ──────────────────────────────────────────────────────────
+\section{Contact Model (Linear Spring--Dashpot)}
+
+\subsection{Geometry}
+
+Let $d$ be the surface-to-surface separation between the closest points of the
+two spherocylinder surfaces and $\hat{\bs{n}}$ the unit normal from particle
+$A$ to $B$ at the contact point $\bs{r}_c$.  Contact occurs when the normal
+overlap is positive:
+\begin{equation}
+  \delta_n = r_A + r_B - d > 0
+\end{equation}
+
+The relative velocity at the contact point is
+\begin{equation}
+  \bs{v}_\text{rel} = \bs{v}_B - \bs{v}_A
+    + \bs{\omega}_B \times (\bs{r}_c - \bs{r}_{B,\text{eff}})
+    - \bs{\omega}_A \times (\bs{r}_c - \bs{r}_{A,\text{eff}})
+\end{equation}
+decomposed into normal and tangential parts:
+\begin{equation}
+  v_n = \bs{v}_\text{rel}\cdot\hat{\bs{n}}, \qquad
+  \bs{v}_t = \bs{v}_\text{rel} - v_n\hat{\bs{n}}
+\end{equation}
+
+\subsection{Effective Parameters}
+
+\begin{equation}
+  M_\text{eff} = \frac{m_A m_B}{m_A + m_B}, \qquad
+  k_n^\text{eff} = \frac{k_{n,A}\, k_{n,B}}{k_{n,A} + k_{n,B}}, \qquad
+  e_n^\text{eff} = \min(e_{n,A},\, e_{n,B})
+\end{equation}
+
+\subsection{Contact Time and Damping Coefficients}
+
+\begin{equation}
+  t_c = \sqrt{\pi^2 + (\ln e_n^\text{eff})^2}\,
+        \sqrt{\frac{M_\text{eff}}{k_n^\text{eff}}}
+\end{equation}
+
+\begin{equation}
+  \xi_n = -\frac{2 M_\text{eff}}{t_c}\ln e_n^\text{eff}
+\end{equation}
+
+The tangential spring constant depends on the contact geometry through the
+generalised effective mass $M_t^{-1} = M_\text{eff}^{-1}
++ d_A^2/I_A + d_B^2/I_B$, where $d_{A,B} = |\bs{r}_c - \bs{r}_{A,B}|$:
+\begin{equation}
+  k_t = \frac{\pi^2 + (\ln e_t^\text{eff})^2}{t_c^2\, M_t^{-1}}, \qquad
+  \xi_t = \frac{-2\ln e_t^\text{eff}}{t_c\, M_t^{-1}}
+\end{equation}
+
+\subsection{Normal Force}
+
+\begin{equation}
+  \bs{F}_n = \bigl(k_n^\text{eff}\,\delta_n + \xi_n\, v_n\bigr)\,(-\hat{\bs{n}})
+\end{equation}
+
+\subsection{Tangential Force (Mindlin--Coulomb)}
+
+The tangential displacement is accumulated incrementally each timestep:
+\begin{equation}
+  \bs{\delta}_t^{n+1} = \bs{\delta}_t^n + \bs{v}_t\,\Delta t
+\end{equation}
+
+The tangential force before the Coulomb cut-off is
+\begin{equation}
+  \bs{F}_t' = k_t\,|\bs{\delta}_t|\,\hat{\bs{t}} + \xi_t\,\bs{v}_t
+\end{equation}
+where $\hat{\bs{t}} = \bs{v}_t/|\bs{v}_t|$.  The Coulomb constraint gives:
+\begin{equation}
+  \bs{F}_t = \begin{cases}
+    \bs{F}_t' & |\bs{F}_t'| \le \mu\,|\bs{F}_n| \\
+    \mu\,|\bs{F}_n|\,\hat{\bs{t}} & \text{otherwise}
+  \end{cases}
+\end{equation}
+with $\mu = (\mu_A + \mu_B)/2$.
+
+\subsection{Torques}
+
+\begin{equation}
+  \bs{\tau}_A = (\bs{r}_c - \bs{r}_{A,\text{eff}}) \times (\bs{F}_n + \bs{F}_t),
+  \qquad
+  \bs{\tau}_B = (\bs{r}_c - \bs{r}_{B,\text{eff}}) \times (-\bs{F}_n - \bs{F}_t)
+\end{equation}
+
+% ──────────────────────────────────────────────────────────
+\section{Lubrication Forces}
+
+Lubrication is applied for pairs within a surface separation $h \le h_\text{max}(r_A+r_B)$
+and is regularised at $h_\text{min}(r_A+r_B)$ to avoid divergence.  Three
+geometric configurations contribute, each weighted by inverse separation distance:
+
+\paragraph{End--end (ee).}  Closest hemisphere-to-hemisphere distance $h_{ee}$:
+\begin{equation}
+  \bs{F}_{ee} = -\eta\,\frac{3\pi L^2}{8\alpha^2\, h_{ee}}\, v_n\,\hat{\bs{n}}
+\end{equation}
+
+\paragraph{Shaft--shaft (ss).}  Closest shaft-to-shaft distance $h_{ss}$:
+\begin{equation}
+  \bs{F}_{ss} = -\eta\,\frac{24\pi L^2}{4\, D_{ss}\, h_{ss}}\, v_n\,\hat{\bs{n}}
+\end{equation}
+where
+\begin{equation}
+  D_{ss} = (2\alpha+1)\sqrt{(\alpha^2+\tfrac{1}{4})
+            (\hat{\bs{e}}_A\!\times\!\hat{\bs{e}}_B)^2
+            + \alpha\bigl(1 + (\hat{\bs{e}}_A\cdot\hat{\bs{e}}_B)^2\bigr)}
+\end{equation}
+and $\alpha = L/(2r)$ is the aspect ratio.
+
+\paragraph{End--shaft (es).}  Closest hemisphere-to-shaft distance $h_{es}$:
+\begin{equation}
+  \bs{F}_{es} = -\eta\,\frac{4\pi L^2}{4\sqrt{2}\,\alpha^2\, h_{es}}\, v_n\,\hat{\bs{n}}
+\end{equation}
+
+\paragraph{Blending.}  The three contributions are combined via inverse-distance
+weighting $w_i = (c_i\, h_i)^{-1}$, $W = \sum_i w_i$:
+\begin{equation}
+  \bs{F}_\text{lub} = \frac{w_{ee}}{W}\bs{F}_{ee}
+                    + \frac{w_{ss}}{W}\bs{F}_{ss}
+                    + \frac{w_{es}}{W}\bs{F}_{es}
+\end{equation}
+where $c_{ee},c_{ss},c_{es}$ are user-supplied manual weights.
+The lubrication torque is $\bs{\tau}_\text{lub} = (\bs{r}_c - \bs{r}_\text{eff})\times\bs{F}_\text{lub}$.
+
+% ──────────────────────────────────────────────────────────
+\section{Stokes Drag}
+
+The fluid has a linear shear velocity profile $\bs{v}_f(\bs{x}) = \dot{\gamma}z\,\hat{\bs{x}}$.
+Drag is computed using the Oberbeck resistance tensor.  In the particle frame ($z$ along $\hat{\bs{e}}$):
+\begin{equation}
+  K_{xx}^\text{p} = K_{yy}^\text{p} = \frac{16(\beta^2-1)}{(2\beta^2-3)\,\ell(\beta)+\beta},
+  \qquad
+  K_{zz}^\text{p} = \frac{8(\beta^2-1)}{(2\beta^2-1)\,\ell(\beta)-\beta}
+\end{equation}
+where $\beta = L/r$ and $\ell(\beta) = \ln(\beta+\sqrt{\beta^2-1})/\sqrt{\beta^2-1}$.
+
+The lab-frame resistance tensor is $\bs{K} = \bs{T}^{-1}\bs{K}^\text{p}\bs{T}$,
+where $\bs{T}$ is the transformation matrix from the lab to the particle frame.
+The drag force is
+\begin{equation}
+  \bs{F}_\text{drag} = \eta\pi r\, \mathrm{diag}(K_{xx},K_{yy},K_{zz})\cdot(\bs{v}_f - \bs{v}_p)
+\end{equation}
+(element-wise product using only the diagonal of $\bs{K}$).
+
+% ──────────────────────────────────────────────────────────
+\section{Hydrodynamic Torque}
+
+The fluid torque on a spheroid is (Jeffery / Oberbeck):
+\begin{align}
+  \tau_x &= \frac{16\pi\eta r^3\beta}{3(\beta_0+\beta^2\gamma_0)}
+            \bigl[(1-\beta^2)D_{zy} + (1+\beta^2)(W_{zy}-\omega_x)\bigr] \\
+  \tau_y &= \frac{16\pi\eta r^3\beta}{3(\alpha_0+\beta^2\gamma_0)}
+            \bigl[(\beta^2-1)D_{xz} + (1+\beta^2)(W_{xz}-\omega_y)\bigr] \\
+  \tau_z &= \frac{32\pi\eta r^3\beta}{3(\alpha_0+\beta_0)}
+            (W_{yx}-\omega_z)
+\end{align}
+where $D_{ij}$ and $W_{ij}$ are the symmetric (rate-of-strain) and antisymmetric
+(vorticity) parts of the local velocity gradient tensor, and the Oberbeck
+coefficients are
+\begin{align}
+  \alpha_0 = \beta_0 &= \frac{\beta^2}{\beta^2-1}
+    + \frac{\beta}{2(\beta^2-1)^{3/2}}\ln\!\frac{\beta-\sqrt{\beta^2-1}}{\beta+\sqrt{\beta^2-1}} \\
+  \gamma_0 &= -\frac{2}{\beta^2-1}
+    - \frac{\beta}{(\beta^2-1)^{3/2}}\ln\!\frac{\beta-\sqrt{\beta^2-1}}{\beta+\sqrt{\beta^2-1}}
+\end{align}
+
+% ──────────────────────────────────────────────────────────
+\section{Inertial Lift}
+
+The inertial lift is modelled as
+\begin{equation}
+  \bs{F}_\text{lift} = c_p\, (\bs{K}\,\bs{L}\,\bs{K})
+    \cdot \bs{G}^\text{sgn} \cdot \bs{v}_d
+\end{equation}
+where $c_p = \pi^2\eta r^2 / \sqrt{\nu}$, $\nu = \eta/\rho_f$,
+$\bs{v}_d = \bs{v}_f - \bs{v}_p$, $G^\text{sgn}_{ij} = G_{ij}/\sqrt{|G_{ij}|}$
+is a signed-square-root of the velocity gradient, and $\bs{L}$ is an empirical
+coefficient matrix
+\begin{equation}
+  \bs{L} = \begin{pmatrix}
+    0.0501 & 0.0329 & 0 \\
+    0.0182 & 0.0173 & 0 \\
+    0      & 0      & 0.0373
+  \end{pmatrix}
+\end{equation}
+
+% ──────────────────────────────────────────────────────────
+\section{Time Integration (Velocity Verlet)}
+
+\paragraph{Translation.}
+\begin{align}
+  \bs{a}^{n+1} &= \bs{F}^{n+1}/m \\
+  \bs{v}^{n+1} &= \bs{v}^n + \tfrac{1}{2}(\bs{a}^n + \bs{a}^{n+1})\Delta t \\
+  \bs{x}^{n+1} &= \bs{x}^n + \bigl(\bs{v}^{n+1} + \tfrac{1}{2}\bs{a}^{n+1}\Delta t\bigr)\Delta t
+\end{align}
+
+\paragraph{Rotation.}
+\begin{align}
+  \bs{\alpha}^{n+1} &= \bs{I}^{-1}\bs{\tau}^{n+1} \\
+  \bs{\omega}^{n+1} &= \bs{\omega}^n + \tfrac{1}{2}(\bs{\alpha}^n + \bs{\alpha}^{n+1})\Delta t \\
+  \hat{\bs{e}}^{n+1} &= \mathrm{normalize}\!\left[
+    \hat{\bs{e}}^n + \bigl(\bs{\omega}^{n+1} + \tfrac{1}{2}\bs{\alpha}^{n+1}\Delta t\bigr)
+    \times \hat{\bs{e}}^n\,\Delta t\right]
+\end{align}
+
+\paragraph{Lees--Edwards boundary conditions.}
+At the $z=0$ and $z=L_z$ boundaries, a Lees--Edwards shear offset $s(t)$ and
+velocity $v_\text{LE}$ are applied:
+\begin{equation}
+  v_x \to v_x \mp v_\text{LE}, \qquad
+  x   \to x \mp s(t)
+\end{equation}
+upon crossing, with periodic wrapping in $x$ and $y$.
+
+% ──────────────────────────────────────────────────────────
+\section{Stress Tensor}
+
+The particle-level stress contribution from contact normal ($\bs{F}_n$),
+contact tangential ($\bs{F}_t$), and lubrication ($\bs{F}_\text{lub}$) forces
+is computed as the Irving--Kirkwood dyadic:
+\begin{equation}
+  \bs{\sigma}^{(i)} = \bs{F} \otimes \bs{r}_c
+\end{equation}
+The $xz$ and $zx$ components are accumulated into bin-averaged profiles and
+divided by the bin volume to give the bulk stress.
+
+\end{document}

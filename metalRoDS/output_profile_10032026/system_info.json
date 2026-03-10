@@ -1,0 +1,24 @@
+{
+    "contact_toggle": 1,
+    "drag_toggle": 1,
+    "dt": 1.9999999494757503e-05,
+    "friction_toggle": 1,
+    "grav_dir": [
+        0.0,
+        0.0,
+        -1.0
+    ],
+    "gravity": false,
+    "lift_toggle": 1,
+    "lubrication_toggle": 1,
+    "periodic_boundaries": [
+        1,
+        1,
+        1
+    ],
+    "system_dimensions": [
+        60.98575973510742,
+        60.98575973510742,
+        60.98575973510742
+    ]
+}
