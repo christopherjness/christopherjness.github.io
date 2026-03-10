@@ -3151,7 +3151,15 @@ int main(int argc, char** argv) {
     std::vector<float> batch_lebc_shifts(gpu_batch_size);
 
     // Metal initialisation
-    std::string metallib_path = getStr("metallib_path","metal/rods_kernels.metallib");
+    std::string metallib_path = getStr("metallib_path","rods_kernels.metallib");
+    {
+        namespace fs = std::filesystem;
+        fs::path p(metallib_path);
+        if (p.is_relative()) {
+            fs::path exe_dir = fs::canonical(fs::path(argv[0])).parent_path();
+            metallib_path = (exe_dir / p).string();
+        }
+    }
     MetalSim ms;
     ms.TPB  = toInt(getStr("TPB","256"));
     ms.TPB2 = toInt(getStr("TPB2","16"));
