@@ -1112,8 +1112,7 @@ static void precompute_pair_consts(MetalSim &ms,
             float en_e  = std::fmin(ens[i], ens[j]);
             float et_e  = std::fmin(ets[i], ets[j]);
             float log_en = std::log(en_e);
-            float term   = h_PI*h_PI + 2.0f * log_en;
-            float t_c    = std::fabs(term) * std::sqrt(M_e / kn_e);
+            float t_c    = std::sqrt(h_PI*h_PI + log_en*log_en) * std::sqrt(M_e / kn_e);
             float dc_n   = (std::isfinite(t_c) && t_c > 0.0f)
                            ? -2.0f * M_e / t_c * log_en : 0.0f;
             pc[idx].kn_eff = kn_e;

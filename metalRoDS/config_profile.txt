@@ -15,7 +15,7 @@ set_vol_frac = true
 volume_fraction = 0.1
 safe_generation = true
 fixed_sys_size = false
-oop = 0.99
+oop = 0
 ref_direction = [1.0, 0.0, 0.0]
 
 from_poly_file = true

@@ -403,27 +403,10 @@ inline float3 spring_force_n_calc(float kn_eff, float delta_n, float3 dir) {
     return dir * delta_n * kn_eff;
 }
 
-inline float M_eff_calc(float mA, float mB) { return mA * mB / (mA + mB); }
-
-inline float t_c_calc(float M_eff, float kn_eff, float en_eff) {
-    float log_en = log(en_eff);
-    return sqrt(PI*PI + log_en*log_en) * sqrt(M_eff / kn_eff);
-}
-
-inline float damping_coef_n_calc(float M_eff, float kn_eff, float en_eff, float t_c) {
-    return -2.0f * M_eff / t_c * log(en_eff);
-}
-
 inline float3 rel_vel_calc(float3 tvelA, float3 tvelB,
                             float3 avelA, float3 avelB,
                             float3 r_A_eff, float3 r_B_eff, float3 r_c) {
     return tvelB - tvelA + cross3(avelB, r_c-r_B_eff) - cross3(avelA, r_c-r_A_eff);
-}
-
-inline float3 damping_force_n_calc(float M_eff, float kn_eff, float en_eff,
-                                    float t_c, float3 dir, float rel_vel_n) {
-    float dc = damping_coef_n_calc(M_eff, kn_eff, en_eff, t_c);
-    return dir * (rel_vel_n * dc);
 }
 
 inline float spring_constant_t_calc(float M_eff, float t_c, float et_eff,
