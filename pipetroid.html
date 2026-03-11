@@ -353,9 +353,8 @@
 
           // X-axis ticks + frequency labels
           spectrumCtx.font = `${FSIZE}px system-ui, sans-serif`;
-          for (let t = 0; t <= 5; t++) {
-            const freq = Math.round(MIN_FREQ + (MAX_FREQ - MIN_FREQ) * t / 5);
-            const px   = plotLeft + (t / 5) * plotSize;
+          for (let freq = MIN_FREQ; freq <= MAX_FREQ; freq += 100) {
+            const px = plotLeft + ((freq - MIN_FREQ) / (MAX_FREQ - MIN_FREQ)) * plotSize;
             spectrumCtx.strokeStyle = 'rgba(255,255,255,0.4)';
             spectrumCtx.beginPath();
             spectrumCtx.moveTo(px, baseY);
@@ -376,7 +375,7 @@
 
           // Peak labels — pill style
           spectrumCtx.font = `${FSIZE}px system-ui, sans-serif`;
-          for (let p = 0; p < Math.min(3, peaks.length); p++) {
+          for (let p = 0; p < Math.min(6, peaks.length); p++) {
             const i     = peaks[p];
             const freq  = Math.round(MIN_FREQ + snapBinIdx[i] / (N - 1) * (MAX_FREQ - MIN_FREQ));
             const x     = plotLeft + i * barW + barW / 2;
