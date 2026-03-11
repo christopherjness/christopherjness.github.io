@@ -403,27 +403,10 @@ inline float3 spring_force_n_calc(float kn_eff, float delta_n, float3 dir) {
     return dir * delta_n * kn_eff;
 }
 
-inline float M_eff_calc(float mA, float mB) { return mA * mB / (mA + mB); }
-
-inline float t_c_calc(float M_eff, float kn_eff, float en_eff) {
-    float log_en = log(en_eff);
-    return sqrt(PI*PI + log_en*log_en) * sqrt(M_eff / kn_eff);
-}
-
-inline float damping_coef_n_calc(float M_eff, float kn_eff, float en_eff, float t_c) {
-    return -2.0f * M_eff / t_c * log(en_eff);
-}
-
 inline float3 rel_vel_calc(float3 tvelA, float3 tvelB,
                             float3 avelA, float3 avelB,
                             float3 r_A_eff, float3 r_B_eff, float3 r_c) {
     return tvelB - tvelA + cross3(avelB, r_c-r_B_eff) - cross3(avelA, r_c-r_A_eff);
-}
-
-inline float3 damping_force_n_calc(float M_eff, float kn_eff, float en_eff,
-                                    float t_c, float3 dir, float rel_vel_n) {
-    float dc = damping_coef_n_calc(M_eff, kn_eff, en_eff, t_c);
-    return dir * (rel_vel_n * dc);
 }
 
 inline float spring_constant_t_calc(float M_eff, float t_c, float et_eff,
@@ -524,14 +507,13 @@ void rod_rod_collision_force(
                                             r_A_eff, r_B_eff, r_c, avg_inert_A, avg_inert_B);
     float3 incr   = rv_t * dt;
     float3 cur_dt = old_interaction + incr;
-    // Direct store — only one thread ever writes this pair's slot
-    *new_interaction = cur_dt;
 
-    float  cur_dt_m = mag3(cur_dt);
-    float3 t_dir    = (rv_t_m   > 1e-8f) ? norm3(rv_t)   :
-                      (cur_dt_m > 1e-8f) ? norm3(cur_dt) : float3(0.0f);
+    float  cur_dt_m     = mag3(cur_dt);
+    // Bug 1 fix: spring force uses displacement direction; Coulomb cap uses velocity direction
+    float3 t_dir_spring = (cur_dt_m > 1e-8f) ? norm3(cur_dt) : float3(0.0f);
+    float3 t_dir_slip   = (rv_t_m   > 1e-8f) ? norm3(rv_t)   : t_dir_spring;
 
-    float3 Tsf_A = t_dir * cur_dt_m * kt;
+    float3 Tsf_A = t_dir_spring * cur_dt_m * kt;
 
     float3 Tdf_A = float3(0.0f);
     if (!gen_phase) {
@@ -540,10 +522,17 @@ void rod_rod_collision_force(
         Tdf_A = rv_t * dc_t;
     }
 
-    float3 tang_A     = Tsf_A + Tdf_A;
-    float3 fric_A     = t_dir * mu_eff * mag3(Nf_A);
+    float3 tang_A = Tsf_A + Tdf_A;
+    float3 fric_A = t_dir_slip * mu_eff * mag3(Nf_A);
 
-    float3 Tf_A = (mag3(tang_A) <= mu_eff * mag3(Nf_A)) ? tang_A : fric_A;
+    bool   sliding = mag3(tang_A) > mu_eff * mag3(Nf_A);
+    float3 Tf_A    = sliding ? fric_A : tang_A;
+
+    // Bug 2 fix: clamp stored displacement so spring doesn't overextend during sliding
+    if (sliding && kt > 0.0f)
+        cur_dt = t_dir_slip * (mu_eff * mag3(Nf_A) / kt);
+    // Direct store — only one thread ever writes this pair's slot
+    *new_interaction = cur_dt;
 
     float3 Tf_B = Tf_A * (-1.0f);
     float3 Tt_A = cross3(r_Ac, Tf_A);

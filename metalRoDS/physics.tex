@@ -113,25 +113,70 @@ generalised effective mass $M_t^{-1} = M_\text{eff}^{-1}
   \bs{F}_n = \bigl(k_n^\text{eff}\,\delta_n + \xi_n\, v_n\bigr)\,(-\hat{\bs{n}})
 \end{equation}
 
-\subsection{Tangential Force (Mindlin--Coulomb)}
+\subsection{Tangential Force}
 
-The tangential displacement is accumulated incrementally each timestep:
+\paragraph{Accumulated tangential displacement.}
+The tangential displacement vector $\bs{\delta}_t$ is carried as persistent
+per-pair state and updated incrementally each timestep:
 \begin{equation}
   \bs{\delta}_t^{n+1} = \bs{\delta}_t^n + \bs{v}_t\,\Delta t
 \end{equation}
-
-The tangential force before the Coulomb cut-off is
+Two direction vectors are then defined from this updated value:
 \begin{equation}
-  \bs{F}_t' = k_t\,|\bs{\delta}_t|\,\hat{\bs{t}} + \xi_t\,\bs{v}_t
+  \hat{\bs{t}}_\delta = \frac{\bs{\delta}_t^{n+1}}{|\bs{\delta}_t^{n+1}|},
+  \qquad
+  \hat{\bs{t}}_v = \frac{\bs{v}_t}{|\bs{v}_t|}
 \end{equation}
-where $\hat{\bs{t}} = \bs{v}_t/|\bs{v}_t|$.  The Coulomb constraint gives:
+with the convention that $\hat{\bs{t}}_v$ falls back to $\hat{\bs{t}}_\delta$
+when $|\bs{v}_t| < \varepsilon$, and both are set to $\bs{0}$ when the
+respective magnitude is below $\varepsilon = 10^{-8}$.  The two directions
+are kept separate because they serve distinct physical roles.
+
+\paragraph{Spring and dashpot forces.}
+The spring force is directed along the \emph{accumulated displacement}
+$\hat{\bs{t}}_\delta$, since that is the direction in which the spring is
+stretched:
+\begin{equation}
+  \bs{F}_\text{spring} = k_t\,|\bs{\delta}_t^{n+1}|\,\hat{\bs{t}}_\delta
+\end{equation}
+The viscous damping force is directed along the \emph{instantaneous tangential
+velocity}:
+\begin{equation}
+  \bs{F}_\text{damp} = \xi_t\,\bs{v}_t
+\end{equation}
+During the particle-generation relaxation phase, the damping force is
+suppressed ($\bs{F}_\text{damp} = \bs{0}$) to avoid artificially stiff
+behaviour at large overlaps.
+
+\paragraph{Coulomb constraint.}
+The pre-limit tangential force is
+\begin{equation}
+  \bs{F}_t' = \bs{F}_\text{spring} + \bs{F}_\text{damp}
+\end{equation}
+and the effective friction coefficient is $\mu = (\mu_A + \mu_B)/2$.
+The applied tangential force is
 \begin{equation}
   \bs{F}_t = \begin{cases}
-    \bs{F}_t' & |\bs{F}_t'| \le \mu\,|\bs{F}_n| \\
-    \mu\,|\bs{F}_n|\,\hat{\bs{t}} & \text{otherwise}
+    \bs{F}_t'
+      & |\bs{F}_t'| \le \mu\,|\bs{F}_n| \quad \text{(sticking)} \\[4pt]
+    \mu\,|\bs{F}_n|\,\hat{\bs{t}}_v
+      & \text{otherwise} \quad \text{(sliding)}
   \end{cases}
 \end{equation}
-with $\mu = (\mu_A + \mu_B)/2$.
+During sliding, the Coulomb force is directed along $\hat{\bs{t}}_v$
+(opposing the relative slip velocity), not along $\hat{\bs{t}}_\delta$.
+
+\paragraph{Displacement clamping during sliding.}
+When sliding occurs, the stored displacement is immediately clamped so that
+the spring is consistent with the Coulomb limit at the next timestep:
+\begin{equation}
+  \bs{\delta}_t^{n+1} \leftarrow
+    \hat{\bs{t}}_v\,\frac{\mu\,|\bs{F}_n|}{k_t}
+  \qquad \text{(if sliding)}
+\end{equation}
+Without this step, $|\bs{\delta}_t|$ grows without bound during sustained
+sliding and produces a large spurious force spike when contact returns to
+sticking.
 
 \subsection{Torques}
 

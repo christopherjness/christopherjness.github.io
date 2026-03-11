@@ -1112,8 +1112,7 @@ static void precompute_pair_consts(MetalSim &ms,
             float en_e  = std::fmin(ens[i], ens[j]);
             float et_e  = std::fmin(ets[i], ets[j]);
             float log_en = std::log(en_e);
-            float term   = h_PI*h_PI + 2.0f * log_en;
-            float t_c    = std::fabs(term) * std::sqrt(M_e / kn_e);
+            float t_c    = std::sqrt(h_PI*h_PI + log_en*log_en) * std::sqrt(M_e / kn_e);
             float dc_n   = (std::isfinite(t_c) && t_c > 0.0f)
                            ? -2.0f * M_e / t_c * log_en : 0.0f;
             pc[idx].kn_eff = kn_e;
@@ -3151,7 +3150,15 @@ int main(int argc, char** argv) {
     std::vector<float> batch_lebc_shifts(gpu_batch_size);
 
     // Metal initialisation
-    std::string metallib_path = getStr("metallib_path","metal/rods_kernels.metallib");
+    std::string metallib_path = getStr("metallib_path","rods_kernels.metallib");
+    {
+        namespace fs = std::filesystem;
+        fs::path p(metallib_path);
+        if (p.is_relative()) {
+            fs::path exe_dir = fs::canonical(fs::path(argv[0])).parent_path();
+            metallib_path = (exe_dir / p).string();
+        }
+    }
     MetalSim ms;
     ms.TPB  = toInt(getStr("TPB","256"));
     ms.TPB2 = toInt(getStr("TPB2","16"));
