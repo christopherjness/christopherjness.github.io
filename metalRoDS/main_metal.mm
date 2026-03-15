@@ -3325,6 +3325,7 @@ int main(int argc, char** argv) {
     // Main simulation loop
     // -------------------------------------------------------------------------
     for (long long time_step = 0; time_step < time_steps; ++time_step) {
+      @autoreleasepool {
 
         if (use_strains && tot_strain > cut_off)    break;
         else if (!use_strains && tot_time > cut_off) break;
@@ -3441,6 +3442,7 @@ int main(int argc, char** argv) {
             // Advance outer loop counter by M-1 (for-loop increments by 1)
             time_step += (long long)(M - 1);
         }
+      } // @autoreleasepool
     }
 
     return 0;
