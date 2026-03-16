@@ -157,46 +157,42 @@
         frame.src = '';
     }
 
+    function openCardSimulator(cardId, contentId, overlayId, frameId, src) {
+        const card    = document.getElementById(cardId);
+        const content = document.getElementById(contentId);
+        const overlay = document.getElementById(overlayId);
+        const frame   = document.getElementById(frameId);
+        const size    = card.clientWidth;
+        card.style.height = size + 'px';
+        const scale   = size / 500;
+        frame.style.transform = `scale(${scale})`;
+        frame.src = src;
+        content.style.visibility = 'hidden';
+        overlay.style.display = 'block';
+    }
+
+    function closeCardSimulator(cardId, contentId, overlayId, frameId) {
+        const card    = document.getElementById(cardId);
+        const content = document.getElementById(contentId);
+        const overlay = document.getElementById(overlayId);
+        const frame   = document.getElementById(frameId);
+        frame.src = '';
+        overlay.style.display = 'none';
+        content.style.visibility = '';
+        card.style.height = '';
+    }
+
     function openRheologySimulator() {
-        const card    = document.getElementById('rheology-card');
-        const content = document.getElementById('rheology-content');
-        const overlay = document.getElementById('rheology-sim-overlay');
-        const frame   = document.getElementById('rheology-frame');
-        const scale   = card.clientWidth / 500;
-        frame.style.transform = `scale(${scale})`;
-        frame.src = 'simulators/shear_simulator.html';
-        content.style.visibility = 'hidden';
-        overlay.style.display = 'block';
+        openCardSimulator('rheology-card', 'rheology-content', 'rheology-sim-overlay', 'rheology-frame', 'simulators/shear_simulator.html');
     }
-
     function closeRheologySimulator() {
-        const content = document.getElementById('rheology-content');
-        const overlay = document.getElementById('rheology-sim-overlay');
-        const frame   = document.getElementById('rheology-frame');
-        frame.src = '';
-        overlay.style.display = 'none';
-        content.style.visibility = '';
+        closeCardSimulator('rheology-card', 'rheology-content', 'rheology-sim-overlay', 'rheology-frame');
     }
-
     function openGelationSimulator() {
-        const card    = document.getElementById('gelation-card');
-        const content = document.getElementById('gelation-content');
-        const overlay = document.getElementById('gelation-sim-overlay');
-        const frame   = document.getElementById('gelation-frame');
-        const scale   = card.clientWidth / 500;
-        frame.style.transform = `scale(${scale})`;
-        frame.src = 'simulators/gelation_simulator.html';
-        content.style.visibility = 'hidden';
-        overlay.style.display = 'block';
+        openCardSimulator('gelation-card', 'gelation-content', 'gelation-sim-overlay', 'gelation-frame', 'simulators/gelation_simulator.html');
     }
-
     function closeGelationSimulator() {
-        const content = document.getElementById('gelation-content');
-        const overlay = document.getElementById('gelation-sim-overlay');
-        const frame   = document.getElementById('gelation-frame');
-        frame.src = '';
-        overlay.style.display = 'none';
-        content.style.visibility = '';
+        closeCardSimulator('gelation-card', 'gelation-content', 'gelation-sim-overlay', 'gelation-frame');
     }
 
     window.addEventListener('resize', resizeSimulatorFrame);
