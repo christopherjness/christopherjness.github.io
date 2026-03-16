@@ -21,15 +21,27 @@
         <h2>our expertise</h2>
         <p>We build bespoke modelling tools designed to answer fundamental questions about the dynamics of particulate systems. Our work is at the interface of soft matter physics and chemical engineering.</p>
         <div class="expertise-grid">
-            <div class="expertise-item">
-                <h3>Suspension rheology</h3>
-                <p>Linking micromechanics to bulk flow behaviour <i>via</i> particle-based simulation.</p>
-                <a href="#" onclick="openSimulator('simulators/shear_simulator.html'); return false;" class="btn primary">rheology simulator</a>
+            <div class="expertise-item" id="rheology-card">
+                <div id="rheology-content">
+                    <h3>Suspension rheology</h3>
+                    <p>Linking micromechanics to bulk flow behaviour <i>via</i> particle-based simulation.</p>
+                    <a href="#" onclick="openRheologySimulator(); return false;" class="btn primary">rheology simulator</a>
+                </div>
+                <div id="rheology-sim-overlay" class="card-sim-overlay">
+                    <iframe id="rheology-frame" class="card-sim-frame" frameborder="0"></iframe>
+                    <a href="#" onclick="closeRheologySimulator(); return false;" class="btn primary card-close-btn">rheology simulator</a>
+                </div>
             </div>
-            <div class="expertise-item">
-                <h3>Colloidal gelation</h3>
-                <p>Understanding network formation and percolation in systems of attractive particles.</p>
-                <a href="#" onclick="openSimulator('simulators/gelation_simulator.html'); return false;" class="btn primary">gelation simulator</a>
+            <div class="expertise-item" id="gelation-card">
+                <div id="gelation-content">
+                    <h3>Colloidal gelation</h3>
+                    <p>Understanding network formation and percolation in systems of attractive particles.</p>
+                    <a href="#" onclick="openGelationSimulator(); return false;" class="btn primary">gelation simulator</a>
+                </div>
+                <div id="gelation-sim-overlay" class="card-sim-overlay">
+                    <iframe id="gelation-frame" class="card-sim-frame" frameborder="0"></iframe>
+                    <a href="#" onclick="closeGelationSimulator(); return false;" class="btn primary card-close-btn">gelation simulator</a>
+                </div>
             </div>
             <div class="expertise-item">
                 <h3>Continuum modelling</h3>
@@ -41,6 +53,7 @@
                 <p>Understanding the fundamentals of extrusion, milling, crystallisation and other industrial unit ops.</p>
             </div>
         </div>
+
     </section>
 
     <div id="simulator-panel" class="simulator-panel" style="display: none;">
@@ -142,6 +155,48 @@
         panel.style.display = 'none';
         frame.onload = null;
         frame.src = '';
+    }
+
+    function openRheologySimulator() {
+        const card    = document.getElementById('rheology-card');
+        const content = document.getElementById('rheology-content');
+        const overlay = document.getElementById('rheology-sim-overlay');
+        const frame   = document.getElementById('rheology-frame');
+        const scale   = card.clientWidth / 500;
+        frame.style.transform = `scale(${scale})`;
+        frame.src = 'simulators/shear_simulator.html';
+        content.style.visibility = 'hidden';
+        overlay.style.display = 'block';
+    }
+
+    function closeRheologySimulator() {
+        const content = document.getElementById('rheology-content');
+        const overlay = document.getElementById('rheology-sim-overlay');
+        const frame   = document.getElementById('rheology-frame');
+        frame.src = '';
+        overlay.style.display = 'none';
+        content.style.visibility = '';
+    }
+
+    function openGelationSimulator() {
+        const card    = document.getElementById('gelation-card');
+        const content = document.getElementById('gelation-content');
+        const overlay = document.getElementById('gelation-sim-overlay');
+        const frame   = document.getElementById('gelation-frame');
+        const scale   = card.clientWidth / 500;
+        frame.style.transform = `scale(${scale})`;
+        frame.src = 'simulators/gelation_simulator.html';
+        content.style.visibility = 'hidden';
+        overlay.style.display = 'block';
+    }
+
+    function closeGelationSimulator() {
+        const content = document.getElementById('gelation-content');
+        const overlay = document.getElementById('gelation-sim-overlay');
+        const frame   = document.getElementById('gelation-frame');
+        frame.src = '';
+        overlay.style.display = 'none';
+        content.style.visibility = '';
     }
 
     window.addEventListener('resize', resizeSimulatorFrame);
