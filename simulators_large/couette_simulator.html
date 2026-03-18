@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Couette Flow Simulator</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="simulator couette">
+    <div id="canvas-wrapper">
+      <div id="left-column">
+        <canvas id="flowCanvas" width="500" height="500"></canvas>
+        <div id="axisLabelRow" aria-hidden="true">
+          <span id="uAxisLabel">Velocity</span>
+          <span id="phiAxisLabel">Volume Fraction</span>
+          <span id="tauAxisLabel">Stress</span>
+        </div>
+      </div>
+
+      <div id="right-column">
+        <div id="controls">
+          <p id="drawHint">Draw a profile of φ on the centre axis, then press START.</p>
+
+          <div class="button-row">
+            <button id="startResetBtn">START</button>
+          </div>
+
+          <div id="physicsSummary">
+            <p>
+              This model solves start-up Couette flow with concentration-dependent viscosity and stress-driven particle migration.
+              The top plate imposes shear, momentum diffuses through the gap, and the particle volume fraction evolves
+              over time.
+            </p>
+
+            <p>In this simplified model, momentum diffusion is given by</p>
+            <p class="equation">\[\frac{\partial u}{\partial t}=\kappa_0\left(1-\frac{\phi}{\phi_m}\right)^{-2}\frac{\partial^2 u}{\partial y^2},\]</p>
+            <p>and particle migration is given by</p>
+            <p class="equation">\[\frac{\partial \phi}{\partial t}=\frac{\partial}{\partial y}\left(M(\phi)\frac{\partial|\tau|}{\partial y}+D\frac{\partial\phi}{\partial y}\right),\]</p>
+            <p>with</p>
+            <p class="equation">\[M(\phi)=k_m\,\phi\left(1-\frac{\phi}{\phi_m}\right),\]</p>
+            <p>and the stress calculated as</p>
+            <p class="equation">\[\tau=\mu(\phi)\frac{\partial u}{\partial y}.\]</p>
+
+            <p><strong>Boundary conditions:</strong></p>
+            <p class="equation">\[u(y=0,t)=0,\quad u(y=H,t)=U_{\text{top}}\]</p>
+            <p class="equation">\[\left(M(\phi)\frac{\partial|\tau|}{\partial y}+D\frac{\partial\phi}{\partial y}\right)_{y=0}=\left(M(\phi)\frac{\partial|\tau|}{\partial y}+D\frac{\partial\phi}{\partial y}\right)_{y=H}=0\]</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="couette_simulator.js"></script>
+    <script>
+      window.MathJax = {
+        tex: { inlineMath: [["\\(", "\\)"], ["$", "$"]] },
+        svg: { fontCache: "global" }
+      };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  </body>
+</html>
