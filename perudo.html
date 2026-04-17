@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perudo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Cinzel:wght@400;600;700;900&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:      #2b5ac4;
+  --surf:    #1e4ab8;
+  --surf2:   #163ea8;
+  --surf3:   #0e3090;
+  --pink:    #ee4488;
+  --pink2:   #ff77bb;
+  --gold:    #ffcc00;
+  --gold2:   #ffdd44;
+  --gold3:   #ffee88;
+  --green:   #22aa44;
+  --green2:  #44cc66;
+  --cream:   #ffffff;
+  --text:    #ffffff;
+  --muted:   rgba(255,255,255,.58);
+  --danger:  #ff3366;
+  --success: #33ee77;
+  --border:  rgba(255,255,255,.22);
+  --border2: rgba(255,255,255,.42);
+}
+
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Body: cobalt blue with dice tile ── */
+body {
+  background-color: var(--bg);
+  background-image: url("data:image/svg+xml,%3Csvg width='156' height='106' viewBox='0 0 156 106' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='white' fill-opacity='.11'%3E%3Crect x='6' y='6' width='44' height='44' rx='7' fill='none' stroke='white' stroke-opacity='.12' stroke-width='1.5'/%3E%3Ccircle cx='28' cy='28' r='3'/%3E%3Crect x='56' y='6' width='44' height='44' rx='7' fill='none' stroke='white' stroke-opacity='.12' stroke-width='1.5'/%3E%3Ccircle cx='70' cy='18' r='3'/%3E%3Ccircle cx='88' cy='38' r='3'/%3E%3Crect x='106' y='6' width='44' height='44' rx='7' fill='none' stroke='white' stroke-opacity='.12' stroke-width='1.5'/%3E%3Ccircle cx='120' cy='18' r='3'/%3E%3Ccircle cx='128' cy='28' r='3'/%3E%3Ccircle cx='138' cy='38' r='3'/%3E%3Crect x='6' y='56' width='44' height='44' rx='7' fill='none' stroke='white' stroke-opacity='.12' stroke-width='1.5'/%3E%3Ccircle cx='18' cy='68' r='3'/%3E%3Ccircle cx='38' cy='68' r='3'/%3E%3Ccircle cx='18' cy='88' r='3'/%3E%3Ccircle cx='38' cy='88' r='3'/%3E%3Crect x='56' y='56' width='44' height='44' rx='7' fill='none' stroke='white' stroke-opacity='.12' stroke-width='1.5'/%3E%3Ccircle cx='68' cy='68' r='3'/%3E%3Ccircle cx='88' cy='68' r='3'/%3E%3Ccircle cx='78' cy='78' r='3'/%3E%3Ccircle cx='68' cy='88' r='3'/%3E%3Ccircle cx='88' cy='88' r='3'/%3E%3Crect x='106' y='56' width='44' height='44' rx='7' fill='none' stroke='white' stroke-opacity='.12' stroke-width='1.5'/%3E%3Ccircle cx='118' cy='67' r='3'/%3E%3Ccircle cx='138' cy='67' r='3'/%3E%3Ccircle cx='118' cy='78' r='3'/%3E%3Ccircle cx='138' cy='78' r='3'/%3E%3Ccircle cx='118' cy='89' r='3'/%3E%3Ccircle cx='138' cy='89' r='3'/%3E%3C/g%3E%3C/svg%3E");
+  color: var(--text);
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: 1.05rem;
+  height: 100vh; height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 0;
+  overflow: hidden;
+}
+
+/* ── Screens ── */
+.screen { display: none; width: 100%; max-width: 760px; padding: 0 16px; flex-direction: column; gap: 8px; overflow: hidden; }
+#s-roll, #s-bid, #s-dudo, #s-over { height: 100%; }
+#s-setup { overflow-y: auto; max-height: calc(100vh - 12px); max-height: calc(100dvh - 12px); }
+.screen.active { display: flex; animation: screenIn .35s cubic-bezier(.2,0,.2,1); }
+@keyframes screenIn { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
+
+/* ── Logo ── */
+.logo {
+  font-family: 'Black Ops One', 'Cinzel', serif;
+  font-size: 3.2rem; font-weight: 400;
+  letter-spacing: .18em;
+  text-align: center; line-height: 1;
+  background: linear-gradient(90deg, #fff 0%, #ffee66 28%, #fff 50%, #ffee66 72%, #fff 100%);
+  background-size: 300% auto;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 3px 0 rgba(255,204,0,.8)) drop-shadow(0 0 24px rgba(255,255,255,.4));
+  animation: logoShimmer 5s linear infinite;
+}
+@keyframes logoShimmer {
+  0%   { background-position: 0% center; }
+  100% { background-position: 300% center; }
+}
+.logo-ornament {
+  display: flex; align-items: center; justify-content: center;
+  gap: 12px; margin: 8px 0 0;
+}
+.logo-ornament::before, .logo-ornament::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.6), transparent);
+  max-width: 140px;
+}
+.logo-ornament span { color: rgba(255,255,255,.85); font-size: .8rem; }
+
+/* ── Colour band (matches box stripes) ── */
+.inca-band {
+  width: 100%; height: 12px; flex-shrink: 0;
+  background: repeating-linear-gradient(90deg,
+    #ee4488  0px, #ee4488  20px,
+    #ffffff 20px, #ffffff  28px,
+    #ffcc00 28px, #ffcc00  48px,
+    #22aa44 48px, #22aa44  68px,
+    #ffffff 68px, #ffffff  76px,
+    #ee4488 76px, #ee4488  96px);
+  border-radius: 3px;
+}
+
+/* ── Cards ── */
+.card {
+  background: linear-gradient(160deg, rgba(255,255,255,.14) 0%, rgba(255,255,255,.07) 100%);
+  border: 1px solid rgba(255,255,255,.35);
+  border-radius: 12px;
+  padding: 10px 14px;
+  box-shadow: 0 6px 28px rgba(0,0,30,.35), inset 0 1px 0 rgba(255,255,255,.18);
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow .4s, border-color .4s;
+  backdrop-filter: blur(2px);
+}
+.card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 5px;
+  border-radius: 12px 12px 0 0;
+  background: repeating-linear-gradient(90deg,
+    #ee4488  0px, #ee4488  14px,
+    #fff    14px, #fff    18px,
+    #ffcc00 18px, #ffcc00  32px,
+    #22aa44 32px, #22aa44  46px,
+    #fff    46px, #fff    50px,
+    #ee4488 50px, #ee4488  64px);
+}
+.card-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+
+/* ── Typography ── */
+h2 { font-family: 'Cinzel', serif; font-size: 1rem; font-weight: 700; color: #fff; letter-spacing: .08em; text-transform: uppercase; text-shadow: 0 1px 3px rgba(0,0,60,.4); }
+h3 { font-family: 'Cinzel', serif; font-size: .85rem; font-weight: 600; color: rgba(255,255,255,.85); letter-spacing: .06em; text-transform: uppercase; }
+.muted { color: var(--muted); font-size: .9rem; }
+
+/* ── Buttons ── */
+.btn {
+  padding: 10px 22px; border-radius: 8px; border: none; cursor: pointer;
+  font-family: 'Cinzel', serif; font-size: .78rem; font-weight: 700;
+  letter-spacing: .07em; text-transform: uppercase;
+  transition: all .15s; white-space: nowrap;
+  position: relative; overflow: hidden;
+}
+.btn-primary {
+  background: linear-gradient(135deg, #ffcc00 0%, #ffdd44 50%, #ffe866 100%);
+  color: #1a3a99;
+  box-shadow: 0 2px 14px rgba(255,204,0,.5), 0 0 30px rgba(255,204,0,.15);
+  font-weight: 800;
+}
+.btn-primary::after {
+  content: ''; position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent);
+  transform: skewX(-15deg);
+  animation: btnShimmer 3.5s ease-in-out infinite;
+}
+@keyframes btnShimmer { 0% { left: -100%; } 45%, 100% { left: 160%; } }
+.btn-primary:hover { background: linear-gradient(135deg, #ffe033 0%, #ffee77 100%); box-shadow: 0 4px 22px rgba(255,204,0,.7), 0 0 50px rgba(255,204,0,.25); transform: translateY(-2px); }
+.btn-danger {
+  background: rgba(238,68,136,.18);
+  border: 1px solid rgba(238,68,136,.65);
+  color: #ff88bb;
+  transition: all .15s;
+}
+.btn-danger:hover { background: rgba(238,68,136,.35); border-color: #ff55aa; color: #ffaacc; box-shadow: 0 0 20px rgba(238,68,136,.4); transform: translateY(-1px); }
+.btn-danger.pulsing { animation: dudoPulse .8s ease-in-out infinite; }
+.btn-ghost { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.45); color: #fff; }
+.btn-ghost:hover { background: rgba(255,255,255,.2); border-color: rgba(255,255,255,.8); box-shadow: 0 0 14px rgba(255,255,255,.2); transform: translateY(-1px); }
+.btn:disabled { opacity: .3; cursor: not-allowed; transform: none !important; }
+.btn:active { transform: scale(.96) !important; }
+
+@keyframes dudoPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(238,68,136,.0); border-color: rgba(238,68,136,.65); }
+  50%       { box-shadow: 0 0 25px rgba(238,68,136,.7), 0 0 50px rgba(238,68,136,.25); border-color: rgba(255,100,160,.95); color: #ffaacc; }
+}
+
+/* ── Inputs ── */
+input[type=number], input[type=text], select {
+  background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.4); border-radius: 7px;
+  padding: 7px 11px; color: #fff; font-family: 'Crimson Text', serif; font-size: 1rem;
+}
+input[type=number] { width: 72px; }
+input[type=text] { width: 160px; }
+input::placeholder { color: rgba(255,255,255,.4); }
+input:focus, select:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 2px rgba(255,204,0,.3); }
+label {
+  font-family: 'Cinzel', serif; font-size: .7rem; font-weight: 600;
+  letter-spacing: .07em; text-transform: uppercase; color: rgba(255,255,255,.7); display: block; margin-bottom: 5px;
+}
+select {
+  appearance: none; padding-right: 28px; width: min(220px, 100%);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='white' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+}
+select option { background: #1e48b8; color: #fff; }
+
+/* ── Layout ── */
+.row  { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.col  { display: flex; flex-direction: column; gap: 8px; }
+.grid2{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.center { text-align: center; }
+.mt  { margin-top: 12px; }
+.mt2 { margin-top: 20px; }
+
+/* ── Dice ── */
+.die {
+  width: 48px; height: 48px; border-radius: 10px;
+  background: linear-gradient(145deg, #fdf4d8, #e8d494);
+  border: 2px solid #c8a840;
+  color: #180404;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.8rem; cursor: pointer;
+  transition: transform .12s, box-shadow .12s, border-color .12s;
+  user-select: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,.7), 4px 4px 0 rgba(0,0,0,.3), inset 0 1px 3px rgba(255,255,255,.8);
+}
+.die:hover { transform: translateY(-4px) rotate(6deg); box-shadow: 0 10px 24px rgba(0,0,0,.7), 4px 4px 0 rgba(0,0,0,.3); border-color: var(--gold3); }
+.die:active { transform: scale(.88) rotate(-10deg); }
+.die.ace {
+  background: linear-gradient(145deg, #ffe868, #d49810);
+  border-color: var(--gold3);
+  box-shadow: 0 4px 12px rgba(0,0,0,.6), 4px 4px 0 rgba(0,0,0,.3), 0 0 22px rgba(232,184,48,.55), inset 0 1px 3px rgba(255,255,255,.6);
+  animation: aceGlow 2.2s ease-in-out infinite;
+}
+@keyframes aceGlow {
+  0%, 100% { box-shadow: 0 4px 12px rgba(0,0,0,.6), 4px 4px 0 rgba(0,0,0,.3), 0 0 16px rgba(232,184,48,.45); }
+  50%       { box-shadow: 0 4px 12px rgba(0,0,0,.6), 4px 4px 0 rgba(0,0,0,.3), 0 0 36px rgba(232,184,48,.85), 0 0 60px rgba(232,184,48,.3); }
+}
+.die.rolling { animation: dieRoll .45s cubic-bezier(.2,0,.8,1); }
+@keyframes dieRoll {
+  0%   { transform: rotate(0deg) scale(1); }
+  25%  { transform: rotate(-30deg) scale(1.2); }
+  50%  { transform: rotate(25deg) scale(.88); }
+  75%  { transform: rotate(-12deg) scale(1.1); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+.die.static { cursor: default; }
+.die.static:hover { transform: none; box-shadow: 0 4px 12px rgba(0,0,0,.7), 4px 4px 0 rgba(0,0,0,.3); }
+.die-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* ── Face selector ── */
+.face-sel { display: flex; gap: 7px; flex-wrap: wrap; }
+.face-btn {
+  width: 40px; height: 40px; border-radius: 8px;
+  background: linear-gradient(145deg, #fdf4d8, #e0cc88);
+  border: 2px solid #5a1818;
+  color: #180404; cursor: pointer; font-size: 1.5rem;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s; user-select: none;
+  box-shadow: 0 3px 8px rgba(0,0,0,.6), 2px 2px 0 rgba(0,0,0,.25), inset 0 1px 2px rgba(255,255,255,.7);
+}
+.face-btn:hover { border-color: var(--gold2); transform: translateY(-3px) scale(1.08); box-shadow: 0 6px 14px rgba(0,0,0,.6), 2px 2px 0 rgba(0,0,0,.25); }
+.face-btn.sel {
+  border-color: var(--gold3);
+  background: linear-gradient(145deg, #ffe868, #e8a800, #ffd040);
+  box-shadow: 0 0 0 3px rgba(255,210,60,.25), 0 0 24px rgba(255,200,48,.8), 0 5px 14px rgba(0,0,0,.6), inset 0 1px 3px rgba(255,255,255,.5);
+  transform: scale(1.2) translateY(-3px);
+  position: relative; z-index: 1;
+}
+
+/* ── Per-face button colours ── */
+.face-btn[data-f="1"] { border-color: rgba(232,184,48,.55); }
+.face-btn[data-f="2"] { border-color: rgba(220,55,55,.55); }
+.face-btn[data-f="3"] { border-color: rgba(40,185,80,.55); }
+.face-btn[data-f="4"] { border-color: rgba(55,100,230,.55); }
+.face-btn[data-f="5"] { border-color: rgba(190,55,230,.55); }
+.face-btn[data-f="6"] { border-color: rgba(225,115,30,.55); }
+.face-btn[data-f="2"].sel { background:linear-gradient(145deg,#ff9090,#cc0808); color:#fff; border-color:#ff4444; box-shadow:0 0 0 3px rgba(255,68,68,.25),0 0 26px rgba(255,68,68,.85),0 5px 14px rgba(0,0,0,.6); }
+.face-btn[data-f="3"].sel { background:linear-gradient(145deg,#88ff99,#089938); color:#062010; border-color:#33ee55; box-shadow:0 0 0 3px rgba(51,221,85,.25),0 0 26px rgba(51,221,85,.85),0 5px 14px rgba(0,0,0,.6); }
+.face-btn[data-f="4"].sel { background:linear-gradient(145deg,#8899ff,#0828cc); color:#fff; border-color:#4466ff; box-shadow:0 0 0 3px rgba(68,102,255,.25),0 0 26px rgba(68,102,255,.85),0 5px 14px rgba(0,0,0,.6); }
+.face-btn[data-f="5"].sel { background:linear-gradient(145deg,#dd88ff,#8808cc); color:#fff; border-color:#cc44ff; box-shadow:0 0 0 3px rgba(204,68,255,.25),0 0 26px rgba(204,68,255,.85),0 5px 14px rgba(0,0,0,.6); }
+.face-btn[data-f="6"].sel { background:linear-gradient(145deg,#ffbb66,#cc5508); color:#fff; border-color:#ff8822; box-shadow:0 0 0 3px rgba(255,136,34,.25),0 0 26px rgba(255,136,34,.85),0 5px 14px rgba(0,0,0,.6); }
+
+/* ── Per-face static dice colours ── */
+.die[data-face="2"] { background:linear-gradient(145deg,#fde8e8,#e8aaaa); border-color:#dd6666; }
+.die[data-face="3"] { background:linear-gradient(145deg,#e8fdee,#aaebb8); border-color:#44cc66; }
+.die[data-face="4"] { background:linear-gradient(145deg,#e8eeff,#aab8f0); border-color:#5577ee; }
+.die[data-face="5"] { background:linear-gradient(145deg,#f4e8fd,#d0aaf0); border-color:#aa55ee; }
+.die[data-face="6"] { background:linear-gradient(145deg,#fdf0e4,#f0cc96); border-color:#dd8833; }
+
+/* ── Player chips ── */
+.player-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.pchip {
+  padding: 5px 14px; border-radius: 20px;
+  font-family: 'Cinzel', serif; font-size: .72rem; font-weight: 600; letter-spacing: .05em;
+  background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.3); color: #fff;
+  transition: all .2s;
+}
+.pchip.me   { border-color: rgba(255,220,60,.7); color: #fff; }
+.pchip.active {
+  animation: chipPop .4s ease-out, chipGlow 1.8s ease-in-out infinite .4s;
+}
+.pchip.dead { opacity: .2; text-decoration: line-through; filter: grayscale(1); }
+@keyframes chipPop { 0% { transform: scale(.75); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+@keyframes chipGlow {
+  0%, 100% { box-shadow: 0 0 10px var(--cg1, rgba(232,184,48,.35)); }
+  50%       { box-shadow: 0 0 22px var(--cg2, rgba(232,184,48,.75)), 0 0 45px var(--cg3, rgba(232,184,48,.2)); }
+}
+
+/* ── Risk meter ── */
+.risk-track {
+  width: 100%; height: 14px;
+  background: linear-gradient(90deg, #12cc55 0%, #aadd00 35%, #ffcc00 52%, #ff6600 72%, #ee0000 88%, #880000 100%);
+  border-radius: 7px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.15);
+  position: relative; overflow: visible;
+}
+.risk-needle {
+  position: absolute; top: 50%; width: 3px; height: 22px;
+  background: white; border-radius: 2px;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 8px rgba(0,0,0,.8), 0 0 3px white;
+  transition: left .5s cubic-bezier(.4,0,.2,1);
+}
+.risk-row {
+  display: flex; justify-content: space-between;
+  width: 100%;
+  font-family: 'Cinzel', serif; font-size: .58rem; letter-spacing: .1em;
+  color: var(--muted); margin-top: -1px;
+}
+
+/* ── Recommendation box ── */
+.rec {
+  padding: 10px 14px; border-radius: 10px;
+  font-size: 1.05rem; font-weight: 600; line-height: 1.45;
+  font-family: 'Crimson Text', serif;
+  transition: all .3s;
+}
+.rec strong { font-family: 'Cinzel', serif; font-size: 1rem; letter-spacing: .04em; }
+.rec small { font-weight: 400; opacity: .72; font-size: .88rem; display: block; margin-top: 5px; }
+.rec-dudo {
+  background: rgba(238,68,136,.22);
+  border: 1px solid rgba(238,68,136,.75);
+  color: #ffbbdd;
+  animation: recPulse 1s ease-in-out infinite;
+  text-shadow: 0 0 12px rgba(238,68,136,.6);
+}
+.rec-bid  { background: rgba(34,170,68,.18); border: 1px solid rgba(68,204,102,.55); color: #88ffaa; text-shadow: 0 0 10px rgba(34,200,68,.4); }
+.rec-warn { background: rgba(255,204,0,.15); border: 1px solid rgba(255,204,0,.55); color: #ffee66; }
+@keyframes recPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(238,68,136,.0), inset 0 0 20px rgba(238,68,136,.1); }
+  50%       { box-shadow: 0 0 24px rgba(238,68,136,.5), inset 0 0 30px rgba(238,68,136,.2); }
+}
+
+/* ── Bid history ── */
+.bids { display: flex; flex-direction: column; gap: 5px; }
+.bid-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 14px; background: rgba(255,255,255,.1); border-radius: 7px;
+  border-left: 3px solid rgba(255,255,255,.3); font-size: .95rem;
+  font-family: 'Crimson Text', serif; color: #fff;
+  animation: bidSlide .25s ease-out;
+}
+@keyframes bidSlide { from { opacity:0; transform:translateX(16px); } to { opacity:1; transform:translateX(0); } }
+.bid-row.latest { background: rgba(255,204,0,.12); border-left-color: var(--gold2); }
+
+/* ── Alert ── */
+.alert { padding: 12px 16px; border-radius: 8px; font-size: .95rem; font-family: 'Crimson Text', serif; }
+.alert-info { background: rgba(255,204,0,.15); border: 1px solid rgba(255,204,0,.5); color: #ffee66; }
+
+/* ── Palifico banner ── */
+#palifico-banner {
+  padding: 12px 18px; border-radius: 10px;
+  background: linear-gradient(135deg, rgba(255,204,0,.2), rgba(255,204,0,.1));
+  border: 1px solid rgba(255,204,0,.7);
+  color: #ffee66; font-weight: 600; font-size: .92rem;
+  font-family: 'Cinzel', serif; letter-spacing: .04em; text-align: center;
+  animation: palGlow 2s ease-in-out infinite alternate;
+}
+@keyframes palGlow {
+  from { box-shadow: 0 0  8px rgba(255,204,0,.15); }
+  to   { box-shadow: 0 0 28px rgba(255,204,0,.45); }
+}
+
+/* ── Turn label ── */
+#turn-lbl { font-family: 'Cinzel', serif; font-size: .82rem; letter-spacing: .1em; text-transform: uppercase; }
+
+/* ── DUDO screen ── */
+.dudo-logo {
+  font-family: 'Cinzel', serif; font-size: 3.5rem; font-weight: 900;
+  letter-spacing: .2em; text-align: center;
+  background: linear-gradient(90deg, #ff66aa 0%, #fff 40%, #ff66aa 60%, #fff 80%, #ff66aa 100%);
+  background-size: 300% auto;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  filter: drop-shadow(0 0 30px rgba(238,68,136,.9)) drop-shadow(0 3px 0 rgba(238,68,136,.8));
+  animation: dudoBoom .5s cubic-bezier(.34,1.56,.64,1), logoShimmer 2s linear infinite .5s;
+}
+@keyframes dudoBoom { from { transform: scale(.2) rotate(-15deg); opacity:0; } to { transform: scale(1) rotate(0); opacity:1; } }
+
+/* ── Game over ── */
+.winner-logo {
+  font-family: 'Cinzel', serif; font-size: 3rem; font-weight: 900;
+  text-align: center;
+  background: linear-gradient(90deg, #fff 0%, #ffee66 28%, #fff 50%, #ffee66 72%, #fff 100%);
+  background-size: 300% auto;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  filter: drop-shadow(0 3px 0 rgba(255,204,0,.8)) drop-shadow(0 0 30px rgba(255,255,255,.4));
+  animation: winnerIn 1s cubic-bezier(.34,1.56,.64,1), logoShimmer 4s linear infinite 1s;
+}
+@keyframes winnerIn { from { transform: scale(.4) rotate(-8deg); opacity:0; } to { transform: scale(1) rotate(0); opacity:1; } }
+
+/* ── Screen shake ── */
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  10%,50%,90% { transform: translateX(-8px); }
+  30%,70%     { transform: translateX(8px); }
+}
+body.shaking { animation: shake .5s ease-in-out; }
+
+/* ── Round intro overlay ── */
+#round-intro {
+  display: none; position: fixed; inset: 0; z-index: 100;
+  background: radial-gradient(ellipse at center, rgba(22,60,160,.97) 0%, rgba(10,30,100,.98) 100%);
+  align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+}
+#round-intro-inner {
+  font-family: 'Cinzel', serif; font-size: 4rem; font-weight: 900;
+  letter-spacing: .3em; text-align: center;
+  background: linear-gradient(90deg, var(--gold) 0%, var(--gold3) 40%, #fff 50%, var(--gold3) 60%, var(--gold) 100%);
+  background-size: 300% auto;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  filter: drop-shadow(0 0 40px rgba(232,184,48,.7));
+  animation: roundBoom .6s cubic-bezier(.34,1.56,.64,1), logoShimmer 3s linear infinite .6s;
+}
+@keyframes roundBoom { from { transform: scale(.2) rotate(10deg); opacity:0; } to { transform: scale(1) rotate(0); opacity:1; } }
+#round-intro.fade-out { animation: fadeOut .4s ease-in forwards; }
+@keyframes fadeOut { to { opacity: 0; } }
+
+/* ── Toasts ── */
+#toasts { position: fixed; top: 16px; right: 16px; z-index: 200; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast {
+  padding: 10px 16px; border-radius: 8px; max-width: 240px;
+  font-family: 'Cinzel', serif; font-size: .72rem; letter-spacing: .05em; font-weight: 600;
+  animation: toastIn .3s ease-out;
+  pointer-events: none;
+}
+@keyframes toastIn  { from { opacity:0; transform:translateX(30px); } to { opacity:1; transform:translateX(0); } }
+@keyframes toastOut { to   { opacity:0; transform:translateX(30px); } }
+.toast-info    { background: rgba(20,50,160,.95); color: #ffee66; border: 1px solid rgba(255,204,0,.5); }
+.toast-danger  { background: rgba(160,20,80,.95); color: #ffaacc; border: 1px solid rgba(238,68,136,.6); }
+.toast-success { background: rgba(10,100,40,.95); color: #88ffaa; border: 1px solid rgba(68,200,100,.55); }
+
+/* ── Bignum ── */
+.bignum { font-family: 'Cinzel', serif; font-size: 2.2rem; font-weight: 700; }
+.stat-lbl { font-family: 'Cinzel', serif; font-size: .65rem; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.3); border-radius: 4px; }
+
+@keyframes bgFloat {
+  0%   { transform: translateY(108vh) rotate(0deg); }
+  100% { transform: translateY(-12vh) rotate(540deg); }
+}
+@keyframes probPop {
+  0%   { transform: scale(.55); opacity: .3; }
+  60%  { transform: scale(1.18); }
+  100% { transform: scale(1);   opacity: 1; }
+}
+
+@media (max-width: 520px) {
+  .grid2 { grid-template-columns: 1fr; }
+  #bid-analysis-row { flex-direction: column; }
+  .dudo-logo { font-size: 2.6rem; }
+  .logo { font-size: 2.4rem; }
+}
+@media (max-width: 340px) {
+  .face-btn { width: 36px; height: 36px; font-size: 1.3rem; }
+  .face-sel { gap: 5px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Confetti canvas ── -->
+<canvas id="confetti-canvas" style="display:none;position:fixed;inset:0;pointer-events:none;z-index:300"></canvas>
+
+<!-- ── Round intro overlay ── -->
+<div id="round-intro">
+  <div id="round-intro-inner">ROUND 1</div>
+  <div class="inca-band" style="width:280px;border-radius:4px"></div>
+</div>
+
+<!-- ── Toasts ── -->
+<div id="toasts"></div>
+
+<!-- ══════════════ SETUP ══════════════ -->
+<div id="s-setup" class="screen active">
+  <div style="text-align:center;padding:4px 0">
+    <div class="logo">PERUDO</div>
+    <div class="logo-ornament" style="margin:4px 0 0"><span>🎲</span></div>
+    <div class="inca-band" style="margin-top:6px;border-radius:4px"></div>
+  </div>
+
+  <div class="card col">
+    <h2>Game Setup</h2>
+    <div class="row mt">
+      <div class="col"><label>Players</label>
+        <input type="number" id="cfg-nplayers" value="4" min="2" max="8"></div>
+      <div class="col"><label>Dice per player</label>
+        <input type="number" id="cfg-ndice" value="5" min="1" max="10"></div>
+    </div>
+    <div id="pnames" class="grid2 mt"></div>
+    <div class="col mt">
+      <label>Who goes first?</label>
+      <select id="cfg-first"></select>
+    </div>
+    <div class="mt">
+      <button class="btn btn-primary" onclick="startGame()">Start Game →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ ROLLING ══════════════ -->
+<div id="s-roll" class="screen">
+  <div style="text-align:center;padding:2px 0">
+    <div class="logo" style="font-size:2rem">PERUDO</div>
+    <div class="logo-ornament" style="margin:4px 0 0"><span>🎲 Round <span id="roll-round">1</span> 🎲</span></div>
+    <div class="inca-band" style="margin-top:6px;border-radius:4px"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><h2>Players</h2></div>
+    <div id="roll-players" class="player-chips"></div>
+  </div>
+
+  <div class="card col">
+    <div class="card-title">
+      <h2>Your Dice</h2>
+      <span class="muted">tap a face for each die</span>
+    </div>
+    <div id="roll-dice" class="die-row"></div>
+    <div class="mt">
+      <button class="btn btn-primary" onclick="goToBidding()">Start Bidding ⚔</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ BIDDING ══════════════ -->
+<div id="s-bid" class="screen">
+  <div class="row" style="justify-content:space-between;align-items:center">
+    <div>
+      <div style="font-family:'Black Ops One','Cinzel',serif;font-size:1.6rem;font-weight:400;letter-spacing:.12em;color:#fff;text-shadow:0 3px 0 rgba(255,204,0,.7),0 0 20px rgba(255,255,255,.3)">PERUDO</div>
+      <div id="bid-round" style="font-family:'Cinzel',serif;font-size:.65rem;letter-spacing:.22em;color:rgba(255,255,255,.6);text-transform:uppercase;margin-top:2px">Round 1</div>
+    </div>
+    <div id="bid-players" class="player-chips" style="justify-content:flex-end"></div>
+  </div>
+
+  <!-- My dice -->
+  <div class="card col">
+    <div class="card-title">
+      <h3>Your Dice <span id="bid-mydice-lbl" class="muted"></span></h3>
+    </div>
+    <div id="bid-mydice" class="die-row"></div>
+  </div>
+
+  <!-- Palifico banner -->
+  <div id="palifico-banner" style="display:none">
+    ★ PALIFICO — <span id="palifico-who"></span> has 1 die · No wild aces · Only <span id="palifico-who2"></span> may change face
+  </div>
+
+  <!-- Analysis + Input side by side -->
+  <div id="bid-analysis-row" style="display:flex;gap:8px;flex-shrink:0">
+
+    <!-- Left: Risk Analysis -->
+    <div class="card col" id="analysis-card" style="flex:1;min-width:0">
+      <h2>Analysis</h2>
+      <div id="no-bid-msg" class="muted mt" style="padding-bottom:6px;font-size:.85rem">No bid yet.</div>
+      <div id="first-bid-rec" class="rec rec-bid mt" style="display:none"></div>
+      <div id="analysis-body" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div>
+            <div class="muted" style="font-size:.68rem;margin-bottom:1px">Current bid</div>
+            <div id="curr-bid-txt" style="font-family:'Cinzel',serif;font-size:1.4rem;font-weight:700;color:var(--gold);line-height:1"></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span id="risk-emoji" style="font-size:1.2rem;transition:all .4s">😌</span>
+            <span id="prob-txt" style="font-family:'Cinzel',serif;font-size:1.4rem;font-weight:900;line-height:1;transition:color .4s">--%</span>
+          </div>
+        </div>
+        <div class="risk-track" style="margin-bottom:3px">
+          <div class="risk-needle" id="risk-needle" style="left:80%"></div>
+        </div>
+        <div class="risk-row" style="margin-bottom:6px"><span>SAFE</span><span>RISKY</span><span>LIAR!</span></div>
+        <div id="expected-txt" class="muted" style="font-size:.72rem;margin-bottom:6px"></div>
+        <div id="rec-box" class="rec rec-bid">—</div>
+      </div>
+    </div>
+
+    <!-- Right: Bid entry -->
+    <div class="card col" id="input-card" style="flex:1;min-width:0;gap:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div id="turn-lbl" class="muted"></div>
+        <button id="opp-dudo-btn" class="btn btn-danger" onclick="triggerDudo('opp')" style="display:none;padding:6px 12px;font-size:.7rem">💀 Dudo!</button>
+        <button id="my-dudo-btn"  class="btn btn-danger" onclick="triggerDudo('me')"  style="display:none;padding:6px 12px;font-size:.7rem">💀 Dudo!</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:0">
+          <button onclick="adjustQty(-1)" class="btn btn-ghost" style="padding:10px 14px;font-size:1.1rem;border-radius:8px 0 0 8px;border-right:none">−</button>
+          <div id="bid-qty-display" style="font-family:'Cinzel',serif;font-size:1.3rem;font-weight:700;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.35);padding:5px 12px;min-width:40px;text-align:center;line-height:1.4">1</div>
+          <button onclick="adjustQty(+1)" class="btn btn-ghost" style="padding:10px 14px;font-size:1.1rem;border-radius:0 8px 8px 0;border-left:none">+</button>
+        </div>
+        <div id="quick-face" class="face-sel"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bid history full width -->
+  <div class="card col" id="hist-card" style="display:none">
+    <h3>History</h3>
+    <div id="hist-list" class="bids mt"></div>
+  </div>
+
+</div>
+
+<!-- ══════════════ DUDO ══════════════ -->
+<div id="s-dudo" class="screen">
+  <div style="text-align:center;padding:8px 0 4px">
+    <div class="dudo-logo">DUDO!</div>
+    <div class="logo-ornament"><span>💀</span></div>
+    <div class="inca-band" style="margin-top:10px;border-radius:4px"></div>
+  </div>
+
+  <div class="card col center">
+    <div id="dudo-desc" class="muted"></div>
+    <div id="dudo-result" class="bignum mt" style="margin-bottom:8px"></div>
+    <div id="dudo-loser" style="font-weight:600"></div>
+  </div>
+
+  <div class="card col center" style="gap:12px">
+    <p class="muted">Were there at least <span id="dudo-face-name" style="color:var(--gold2);font-weight:600"></span>?</p>
+    <div class="row" style="justify-content:center;gap:16px">
+      <button class="btn btn-primary" style="font-size:1rem;padding:12px 28px" onclick="resolveDudo(true)">✓ Yes</button>
+      <button class="btn btn-danger"  style="font-size:1rem;padding:12px 28px" onclick="resolveDudo(false)">✗ No</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ GAME OVER ══════════════ -->
+<div id="s-over" class="screen">
+  <div style="text-align:center;padding:16px 0 4px">
+    <div class="winner-logo">VICTORY!</div>
+    <div class="logo-ornament"><span>🏆</span></div>
+    <div class="inca-band" style="margin-top:10px;border-radius:4px"></div>
+  </div>
+  <div class="card center col" style="gap:20px;padding:36px">
+    <div id="winner-txt" style="font-family:'Cinzel',serif;font-size:1.8rem;font-weight:700;color:var(--gold2);text-shadow:0 0 24px rgba(232,184,48,.5)"></div>
+    <div style="color:var(--gold);font-size:1.1rem;letter-spacing:.1em">✦ &nbsp; ✦ &nbsp; ✦</div>
+    <button class="btn btn-primary" onclick="showScreen('s-setup')">Play Again</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+// AUDIO (Web Audio API — no files needed)
+// ══════════════════════════════════════════════
+let _ac;
+function getAC() { return (_ac = _ac || new (window.AudioContext || window.webkitAudioContext)()); }
+
+function sfxDice() {
+  try {
+    const c = getAC(), t = c.currentTime;
+    const buf = c.createBuffer(1, c.sampleRate * .1, c.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random()*2-1) * (1 - i/d.length) * .7;
+    const s = c.createBufferSource(); s.buffer = buf;
+    const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1400; f.Q.value = .6;
+    s.connect(f); f.connect(c.destination); s.start(t);
+  } catch(e) {}
+}
+
+function sfxBid() {
+  try {
+    const c = getAC(), t = c.currentTime;
+    const o = c.createOscillator(), g = c.createGain();
+    o.connect(g); g.connect(c.destination);
+    o.frequency.setValueAtTime(380, t);
+    o.frequency.exponentialRampToValueAtTime(680, t + .09);
+    g.gain.setValueAtTime(.22, t); g.gain.exponentialRampToValueAtTime(.001, t + .18);
+    o.start(t); o.stop(t + .18);
+  } catch(e) {}
+}
+
+function sfxDudo() {
+  try {
+    const c = getAC(), t = c.currentTime;
+    [200, 160, 110].forEach((freq, i) => {
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = 'sawtooth'; o.connect(g); g.connect(c.destination);
+      o.frequency.setValueAtTime(freq, t + i*.09);
+      o.frequency.exponentialRampToValueAtTime(freq * .45, t + i*.09 + .45);
+      g.gain.setValueAtTime(.45, t + i*.09); g.gain.exponentialRampToValueAtTime(.001, t + i*.09 + .5);
+      o.start(t + i*.09); o.stop(t + i*.09 + .5);
+    });
+  } catch(e) {}
+}
+
+function sfxLose() {
+  try {
+    const c = getAC(), t = c.currentTime;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = 'triangle'; o.connect(g); g.connect(c.destination);
+    o.frequency.setValueAtTime(440, t); o.frequency.exponentialRampToValueAtTime(110, t + .55);
+    g.gain.setValueAtTime(.3, t); g.gain.exponentialRampToValueAtTime(.001, t + .6);
+    o.start(t); o.stop(t + .6);
+  } catch(e) {}
+}
+
+function sfxWin() {
+  try {
+    const c = getAC(), t = c.currentTime;
+    [523, 659, 784, 1047, 1319].forEach((freq, i) => {
+      const o = c.createOscillator(), g = c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0, t + i*.12);
+      g.gain.linearRampToValueAtTime(.3, t + i*.12 + .05);
+      g.gain.exponentialRampToValueAtTime(.001, t + i*.12 + .4);
+      o.start(t + i*.12); o.stop(t + i*.12 + .4);
+    });
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════════
+// TOASTS
+// ══════════════════════════════════════════════
+function toast() {}
+
+// ══════════════════════════════════════════════
+// CONFETTI
+// ══════════════════════════════════════════════
+function launchConfetti() {
+  const canvas = document.getElementById('confetti-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.style.display = 'block';
+  canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+  const cols = ['#c9940f','#e8b830','#ffd060','#9b1c1c','#e04444','#f0ddb0','#ffffff','#ff8888'];
+  const parts = Array.from({length: 220}, () => ({
+    x: Math.random() * canvas.width,
+    y: -20 - Math.random() * 250,
+    vx: (Math.random() - .5) * 5,
+    vy: Math.random() * 3.5 + 1.5,
+    rot: Math.random() * 360,
+    rs: (Math.random() - .5) * 9,
+    w: Math.random() * 13 + 4,
+    h: Math.random() * 7 + 3,
+    col: cols[Math.floor(Math.random() * cols.length)],
+    alpha: 1,
+  }));
+  let frame; const start = Date.now();
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const elapsed = (Date.now() - start) / 1000;
+    parts.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.vy += .06; p.rot += p.rs;
+      if (elapsed > 3) p.alpha = Math.max(0, p.alpha - .015);
+      ctx.save(); ctx.globalAlpha = p.alpha;
+      ctx.translate(p.x, p.y); ctx.rotate(p.rot * Math.PI / 180);
+      ctx.fillStyle = p.col; ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+      ctx.restore();
+    });
+    if (elapsed < 6 && parts.some(p => p.y < canvas.height)) {
+      frame = requestAnimationFrame(draw);
+    } else {
+      canvas.style.display = 'none';
+    }
+  }
+  draw();
+}
+
+// ══════════════════════════════════════════════
+// SCREEN SHAKE
+// ══════════════════════════════════════════════
+function shakeScreen() {
+  document.body.classList.remove('shaking');
+  void document.body.offsetWidth; // reflow to restart
+  document.body.classList.add('shaking');
+  setTimeout(() => document.body.classList.remove('shaking'), 500);
+}
+
+// ══════════════════════════════════════════════
+// ROUND INTRO OVERLAY
+// ══════════════════════════════════════════════
+function showRoundIntro(num, then) {
+  // Hide all screens immediately so nothing shows under the overlay
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById('round-intro');
+  document.getElementById('round-intro-inner').textContent = `ROUND ${num}`;
+  el.classList.remove('fade-out');
+  el.style.display = 'flex';
+  setTimeout(() => {
+    el.classList.add('fade-out');
+    setTimeout(() => { el.style.display = 'none'; then(); }, 420);
+  }, 1100);
+}
+
+// ══════════════════════════════════════════════
+// DICE FACES
+// ══════════════════════════════════════════════
+const DF = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+const face = n => DF[n-1];
+const faceName = n => n === 1 ? 'aces (wild)' : `${face(n)}s`;
+
+// ── Player colours (hex) ──────────────────────
+const PLAYER_COLS = ['#e8b830','#ff4444','#33dd66','#4488ff','#cc44ff','#ff8822','#22ccdd','#ff55bb'];
+function hexToRgba(hex, a) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+// ══════════════════════════════════════════════
+// GAME STATE
+// ══════════════════════════════════════════════
+let G = {
+  players: [],
+  round: 0,
+  myDice: [],
+  bid: null,
+  history: [],
+  turnIdx: 0,
+  startIdx: 0,
+  dudoCtx: null,
+  isPalifico: false,
+  palificoPlayerIdx: -1,
+  palificoUsed: new Set(),
+};
+
+// ══════════════════════════════════════════════
+// PROBABILITY
+// ══════════════════════════════════════════════
+function lnC(n, k) {
+  if (k < 0 || k > n) return -Infinity;
+  if (k === 0 || k === n) return 0;
+  k = Math.min(k, n - k);
+  let r = 0;
+  for (let i = 0; i < k; i++) r += Math.log(n - i) - Math.log(i + 1);
+  return r;
+}
+function pAtLeast(n, need, p) {
+  if (need <= 0) return 1;
+  if (need > n) return 0;
+  let s = 0;
+  for (let i = need; i <= n; i++) s += Math.exp(lnC(n, i)) * p**i * (1-p)**(n-i);
+  return Math.min(1, Math.max(0, s));
+}
+function otherDice() { return G.players.reduce((s,p,i) => i===0 ? s : s + p.dice, 0); }
+function totalDice()  { return G.players.reduce((s,p) => s + p.dice, 0); }
+
+function probBid(qty, f, myDice, others) {
+  const p = (!G.isPalifico && f !== 1) ? 2/6 : 1/6;
+  const mine = (G.isPalifico || f === 1)
+    ? myDice.filter(d => d === f).length
+    : myDice.filter(d => d === f || d === 1).length;
+  return pAtLeast(others, qty - mine, p);
+}
+function expectedMatches(f, myDice, others) {
+  const p = (!G.isPalifico && f !== 1) ? 2/6 : 1/6;
+  const mine = (G.isPalifico || f === 1)
+    ? myDice.filter(d => d === f).length
+    : myDice.filter(d => d === f || d === 1).length;
+  return mine + others * p;
+}
+
+// ══════════════════════════════════════════════
+// BID RULES
+// ══════════════════════════════════════════════
+function validNext(qty, f, cur, bidderIdx) {
+  if (G.isPalifico && cur) {
+    const canChange = bidderIdx === G.palificoPlayerIdx;
+    if (!canChange && f !== cur.face) return false;
+    if (f === cur.face) return qty > cur.qty;
+    if (qty > cur.qty) return true;
+    if (qty === cur.qty && f > cur.face) return true;
+    return false;
+  }
+  if (!cur) return qty >= 1;
+  const {qty:cq, face:cf} = cur;
+  if (cf === 1) {
+    if (f === 1) return qty > cq;
+    return qty >= cq * 2;
+  } else {
+    if (f === 1) return qty >= Math.ceil(cq / 2);
+    if (qty > cq) return true;
+    if (qty === cq && f > cf) return true;
+    return false;
+  }
+}
+
+function minNext(cur, bidderIdx) {
+  if (!cur) return {qty: 1, face: 2};
+  if (G.isPalifico) {
+    const canChange = bidderIdx === G.palificoPlayerIdx;
+    if (!canChange) return {qty: cur.qty + 1, face: cur.face};
+  }
+  const {qty:cq, face:cf} = cur;
+  if (cf === 1) return {qty: cq*2, face: 2};
+  if (cf < 6) return {qty: cq, face: cf+1};
+  return {qty: cq+1, face: 2};
+}
+
+function bestBid(cur, myDice, others) {
+  const max = totalDice() + 3;
+  const candidates = [];
+  for (let f of [2,3,4,5,6,1]) {
+    for (let q = 1; q <= max; q++) {
+      if (!validNext(q, f, cur, 0)) continue;
+      candidates.push({qty:q, face:f, p: probBid(q, f, myDice, others)});
+    }
+  }
+  const safe = candidates.filter(b => b.p >= 0.5);
+  if (!safe.length) return null;
+  safe.sort((a,b) => {
+    const sa = a.qty*10 + (a.face===1?7:a.face);
+    const sb = b.qty*10 + (b.face===1?7:b.face);
+    return sb - sa;
+  });
+  return safe[0];
+}
+
+// ══════════════════════════════════════════════
+// SETUP
+// ══════════════════════════════════════════════
+function renderNameInputs() {
+  const n = +document.getElementById('cfg-nplayers').value;
+  const c = document.getElementById('pnames');
+  c.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const d = document.createElement('div');
+    d.className = 'col';
+    d.innerHTML = `<label>${i===0 ? 'Your name (You)' : `Player ${i+1}`}</label>
+      <input type="text" id="pn-${i}" value="${i===0 ? 'You' : 'Player '+(i+1)}" style="width:100%" oninput="updateFirstDropdown()">`;
+    c.appendChild(d);
+  }
+  updateFirstDropdown();
+}
+
+function updateFirstDropdown() {
+  const n = +document.getElementById('cfg-nplayers').value;
+  const sel = document.getElementById('cfg-first');
+  const prev = sel.value;
+  sel.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const name = document.getElementById(`pn-${i}`)?.value || `Player ${i+1}`;
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = i===0 ? `${name} (You)` : name;
+    sel.appendChild(opt);
+  }
+  if (prev && +prev < n) sel.value = prev;
+}
+document.getElementById('cfg-nplayers').addEventListener('input', renderNameInputs);
+renderNameInputs();
+
+function startGame() {
+  const n = +document.getElementById('cfg-nplayers').value;
+  const d = +document.getElementById('cfg-ndice').value;
+  G.players = Array.from({length: n}, (_, i) => ({
+    name: document.getElementById(`pn-${i}`)?.value || `Player ${i+1}`,
+    dice: d,
+    isMe: i === 0,
+  }));
+  G.round = 0;
+  G.startIdx = +document.getElementById('cfg-first').value;
+  G.palificoUsed = new Set();
+  beginRound();
+}
+
+// ══════════════════════════════════════════════
+// ROUND START
+// ══════════════════════════════════════════════
+function beginRound() {
+  G.round++;
+  G.myDice = new Array(G.players[0].dice).fill(1);
+  G.bid = null; G.history = []; G.turnIdx = G.startIdx;
+
+  const starter = G.players[G.startIdx];
+  const firstTimePalifico = starter.dice === 1 && !G.palificoUsed.has(G.startIdx);
+  G.isPalifico = firstTimePalifico;
+  G.palificoPlayerIdx = G.isPalifico ? G.startIdx : -1;
+  if (G.isPalifico) G.palificoUsed.add(G.startIdx);
+
+  showRoundIntro(G.round, () => {
+    document.getElementById('roll-round').textContent = G.round;
+    renderPlayers('roll-players');
+    buildDiceInput();
+    showScreen('s-roll');
+    if (G.isPalifico) toast(`★ PALIFICO — ${starter.name} has 1 die!`, 'info');
+  });
+}
+
+function buildDiceInput() {
+  const row = document.getElementById('roll-dice');
+  row.innerHTML = '';
+  row.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+  G.myDice.forEach((_, i) => {
+    const dieRow = document.createElement('div');
+    dieRow.style.cssText = 'display:flex;align-items:center;gap:10px';
+    const lbl = document.createElement('span');
+    lbl.className = 'stat-lbl';
+    lbl.style.cssText = 'width:28px;text-align:right;flex-shrink:0';
+    lbl.textContent = `D${i+1}`;
+    const sel = document.createElement('div');
+    sel.className = 'face-sel';
+    for (let f = 1; f <= 6; f++) {
+      const b = document.createElement('div');
+      b.className = 'face-btn' + (f === 1 ? ' sel' : '');
+      b.textContent = face(f);
+      b.onclick = () => {
+        sel.querySelectorAll('.face-btn').forEach(x => x.classList.remove('sel'));
+        b.classList.add('sel');
+        G.myDice[i] = f;
+        sfxDice();
+      };
+      sel.appendChild(b);
+    }
+    dieRow.appendChild(lbl);
+    dieRow.appendChild(sel);
+    row.appendChild(dieRow);
+  });
+}
+
+function goToBidding() {
+  document.getElementById('bid-round').textContent = `Round ${G.round} — Bidding`;
+  renderPlayers('bid-players');
+  renderMyDiceStatic();
+  document.getElementById('no-bid-msg').style.display = 'block';
+  document.getElementById('analysis-body').style.display = 'none';
+  document.getElementById('hist-card').style.display = 'none';
+
+  const banner = document.getElementById('palifico-banner');
+  if (G.isPalifico) {
+    const pName = G.players[G.palificoPlayerIdx].name;
+    document.getElementById('palifico-who').textContent = pName;
+    document.getElementById('palifico-who2').textContent = pName;
+    banner.style.display = 'block';
+  } else {
+    banner.style.display = 'none';
+  }
+
+  updateTurnUI();
+  showScreen('s-bid');
+}
+
+function renderMyDiceStatic() {
+  const row = document.getElementById('bid-mydice');
+  row.innerHTML = '';
+  document.getElementById('bid-mydice-lbl').textContent = `(${G.myDice.length} dice)`;
+  G.myDice.forEach(v => {
+    const d = document.createElement('div');
+    d.className = 'die static' + (v === 1 ? ' ace' : '');
+    d.dataset.face = v;
+    d.textContent = face(v);
+    row.appendChild(d);
+  });
+}
+
+// ══════════════════════════════════════════════
+// PLAYER DISPLAY
+// ══════════════════════════════════════════════
+function renderPlayers(id) {
+  const c = document.getElementById(id);
+  if (!c) return;
+  c.innerHTML = '';
+  const maxDice = Math.max(...G.players.map(p => p.dice));
+  G.players.forEach((p, i) => {
+    const ch = document.createElement('div');
+    ch.className = ['pchip', p.isMe?'me':'', i===G.turnIdx?'active':'', p.dice===0?'dead':''].filter(Boolean).join(' ');
+    ch.textContent = `${p.name} ${Array(p.dice+1).join('⬡')}`;
+    if (p.dice > 0) {
+      const ratio = p.dice / maxDice;
+      const col = ratio >= .75 ? '#44dd77'
+                : ratio >= .5  ? '#ffcc00'
+                : ratio >= .25 ? '#ff8822'
+                :                '#ff4444';
+      ch.style.borderColor = hexToRgba(col, .75);
+      ch.style.color = col;
+      if (i === G.turnIdx) {
+        ch.style.setProperty('--cg1', hexToRgba(col, .4));
+        ch.style.setProperty('--cg2', hexToRgba(col, .85));
+        ch.style.setProperty('--cg3', hexToRgba(col, .2));
+      }
+    }
+    c.appendChild(ch);
+  });
+}
+
+// ══════════════════════════════════════════════
+// TURN UI
+// ══════════════════════════════════════════════
+let _currentQty = 1;
+let _lockedFace = null;
+
+function updateTurnUI() {
+  renderPlayers('bid-players');
+  const isMe = G.turnIdx === 0;
+  document.getElementById('turn-lbl').textContent = isMe ? '⚔ Your turn' : `${G.players[G.turnIdx].name}'s bid`;
+  document.getElementById('opp-dudo-btn').style.display = isMe ? 'none' : '';
+  document.getElementById('my-dudo-btn').style.display  = isMe ? '' : 'none';
+
+  const bidderIdx = G.turnIdx;
+  const canChangeFace = !G.isPalifico || bidderIdx === G.palificoPlayerIdx;
+  _lockedFace = (!canChangeFace && G.bid) ? G.bid.face : null;
+  _currentQty = minNext(G.bid, bidderIdx).qty;
+  document.getElementById('bid-qty-display').textContent = _currentQty;
+  buildQuickFaceSel();
+  updateAnalysis();
+}
+
+function adjustQty(delta) {
+  const newQty = _currentQty + delta;
+  if (newQty < 1) return;
+  // Floor is the lowest qty that's valid for at least one face
+  const floor = G.bid
+    ? (G.bid.face === 1 ? G.bid.qty * 2 : Math.ceil(G.bid.qty / 2))
+    : 1;
+  if (newQty < floor) return;
+  _currentQty = newQty;
+  document.getElementById('bid-qty-display').textContent = _currentQty;
+  buildQuickFaceSel();
+  sfxDice();
+}
+
+function buildQuickFaceSel() {
+  const c = document.getElementById('quick-face');
+  c.innerHTML = '';
+  for (let f = 1; f <= 6; f++) {
+    const b = document.createElement('div');
+    const locked = _lockedFace !== null && f !== _lockedFace;
+    const illegal = !validNext(_currentQty, f, G.bid, G.turnIdx);
+    b.className = 'face-btn';
+    if (locked || illegal) b.style.cssText = 'opacity:.2;cursor:not-allowed;pointer-events:none';
+    b.dataset.f = f; b.textContent = face(f);
+    b.onclick = () => {
+      if (locked) return;
+      const qty = _currentQty;
+      const bidderIdx = G.turnIdx;
+      if (!validNext(qty, f, G.bid, bidderIdx)) {
+        toast('Increase quantity first', 'danger'); return;
+      }
+      c.querySelectorAll('.face-btn').forEach(x => x.classList.remove('sel'));
+      b.classList.add('sel');
+      recordBid(qty, f, bidderIdx);
+      advance();
+    };
+    c.appendChild(b);
+  }
+}
+
+function recordBid(qty, f, pi) {
+  G.bid = {qty, face: f, pi};
+  G.history.push({qty, face: f, pi, isMe: pi===0, name: G.players[pi].name, col: PLAYER_COLS[pi % PLAYER_COLS.length]});
+  sfxBid();
+  renderHistory();
+}
+
+function advance() {
+  let nx = G.turnIdx;
+  do { nx = (nx + 1) % G.players.length; }
+  while (G.players[nx].dice === 0 && nx !== G.turnIdx);
+  G.turnIdx = nx;
+  updateTurnUI();
+}
+
+// ══════════════════════════════════════════════
+// HISTORY
+// ══════════════════════════════════════════════
+function renderHistory() {
+  const list = document.getElementById('hist-list');
+  list.innerHTML = '';
+  const recent = G.history.slice(-5);
+  recent.forEach((b, i) => {
+    const r = document.createElement('div');
+    const last = i === recent.length - 1;
+    r.className = 'bid-row' + (last ? ' latest' : '');
+    r.innerHTML = `<span>${b.name}</span><span>${b.qty}× ${face(b.face)}</span>`;
+    if (b.col) r.style.borderLeftColor = b.col;
+    list.appendChild(r);
+  });
+  document.getElementById('hist-card').style.display = G.history.length ? 'block' : 'none';
+}
+
+// ══════════════════════════════════════════════
+// ANALYSIS + RISK METER
+// ══════════════════════════════════════════════
+function updateAnalysis() {
+  const firstRecEl = document.getElementById('first-bid-rec');
+  if (!G.bid) {
+    const bb = bestBid(null, G.myDice, otherDice());
+    if (bb) {
+      firstRecEl.style.display = 'block';
+      firstRecEl.innerHTML = `<strong>🎯 Opening Bid: ${bb.qty}× ${face(bb.face)}</strong> (${Math.round(bb.p*100)}% safe)`
+        + `<small>Based on your dice — a safe opening bid</small>`;
+    } else {
+      firstRecEl.style.display = 'none';
+    }
+    return;
+  }
+  firstRecEl.style.display = 'none';
+  document.getElementById('no-bid-msg').style.display = 'none';
+  document.getElementById('analysis-body').style.display = 'block';
+
+  const {qty, face: f} = G.bid;
+  const others = otherDice();
+  const p   = probBid(qty, f, G.myDice, others);
+  const exp = expectedMatches(f, G.myDice, others);
+  const pct = Math.round(p * 100);
+
+  // Bid label
+  document.getElementById('curr-bid-txt').textContent = `${qty}× ${face(f)}`;
+
+  // Risk meter — needle moves right as probability DECREASES (more risky)
+  const riskPct = 100 - pct; // 0=safe, 100=liar
+  document.getElementById('risk-needle').style.left = `${Math.min(98, Math.max(2, riskPct))}%`;
+
+  // Emoji + label + colour
+  let emoji, label, col;
+  if (pct >= 75)      { emoji='😌'; label='SAFE';    col='var(--success)'; }
+  else if (pct >= 55) { emoji='🤔'; label='PLAUSIBLE'; col='#8de870'; }
+  else if (pct >= 40) { emoji='😬'; label='RISKY';   col='var(--gold2)'; }
+  else if (pct >= 25) { emoji='😰'; label='DANGER';  col='#f09030'; }
+  else                { emoji='💀'; label='LIAR!';   col='var(--danger)'; }
+
+  document.getElementById('risk-emoji').textContent = emoji;
+  const ptxt = document.getElementById('prob-txt');
+  ptxt.textContent = `${pct}%`;
+  ptxt.style.color = col;
+  ptxt.style.animation = 'none';
+  ptxt.offsetWidth;
+  ptxt.style.animation = 'probPop .5s cubic-bezier(.34,1.56,.64,1)';
+
+  // Analysis card glow reacts to risk level
+  const ac = document.getElementById('analysis-card');
+  if (p < 0.35)      { ac.style.boxShadow = '0 0 35px rgba(238,68,136,.6), 0 0 70px rgba(238,68,136,.2), 0 6px 28px rgba(0,0,30,.35)'; ac.style.borderColor = 'rgba(238,68,136,.8)'; }
+  else if (p < 0.55) { ac.style.boxShadow = '0 0 22px rgba(255,204,0,.4), 0 6px 28px rgba(0,0,30,.35)'; ac.style.borderColor = ''; }
+  else               { ac.style.boxShadow = '0 0 22px rgba(34,200,100,.35), 0 6px 28px rgba(0,0,30,.35)'; ac.style.borderColor = ''; }
+
+  // Expected
+  document.getElementById('expected-txt').textContent =
+    `Expected ${faceName(f)}: ~${exp.toFixed(1)} across ${totalDice()} dice`;
+
+  // DUDO button urgency
+  const dudoBtns = [document.getElementById('my-dudo-btn'), document.getElementById('opp-dudo-btn')];
+  dudoBtns.forEach(btn => {
+    if (!btn) return;
+    if (pct < 35)      { btn.classList.add('pulsing'); btn.style.animationDuration = '.5s'; }
+    else if (pct < 50) { btn.classList.add('pulsing'); btn.style.animationDuration = '1s'; }
+    else               { btn.classList.remove('pulsing'); }
+  });
+
+  // Recommendation
+  const rec = document.getElementById('rec-box');
+  const isMyTurn = G.turnIdx === 0;
+  if (p < 0.45) {
+    rec.className = 'rec rec-dudo';
+    rec.innerHTML = `<strong>💀 CALL DUDO</strong> — only ${pct}% chance this bid is true`
+      + (isMyTurn ? '' : '<small>Wait for your turn, then call it</small>');
+  } else if (p < 0.55) {
+    const bb = bestBid(G.bid, G.myDice, others);
+    rec.className = 'rec rec-warn';
+    rec.innerHTML = bb
+      ? `<strong>⚠ Borderline (${pct}%)</strong> — if you bid: <strong>${bb.qty}× ${face(bb.face)}</strong> <small>${Math.round(bb.p*100)}% safe</small>`
+      : `<strong>⚠ Borderline (${pct}%)</strong> — leaning towards Dudo`;
+  } else {
+    const bb = bestBid(G.bid, G.myDice, others);
+    if (bb) {
+      rec.className = 'rec rec-bid';
+      rec.innerHTML = `<strong>🎯 BID: ${bb.qty}× ${face(bb.face)}</strong> (${Math.round(bb.p*100)}% safe)`
+        + (p >= 0.75 ? '<small>Current bid is very safe — push higher</small>' : '');
+    } else {
+      rec.className = 'rec rec-warn';
+      rec.innerHTML = `<strong>Bid is safe (${pct}%) but nowhere to escalate</strong><small>Hold or Dudo if cornered</small>`;
+    }
+  }
+}
+
+// ══════════════════════════════════════════════
+// DUDO
+// ══════════════════════════════════════════════
+function triggerDudo(who) {
+  if (!G.bid) { alert('No bid has been made yet!'); return; }
+  const chalIdx = who === 'me' ? 0 : G.turnIdx;
+  G.dudoCtx = {chalIdx, bidderIdx: G.bid.pi, bid: {...G.bid}};
+
+  sfxDudo();
+  shakeScreen();
+  toast(`${G.players[chalIdx].name} calls DUDO! 💀`, 'danger');
+
+  document.getElementById('dudo-desc').textContent =
+    `${G.players[chalIdx].name} challenges ${G.players[G.bid.pi].name}'s bid of ${G.bid.qty}× ${face(G.bid.face)}`;
+  document.getElementById('dudo-face-name').textContent = `${G.bid.qty}× ${faceName(G.bid.face)}`;
+  document.getElementById('dudo-result').textContent = '';
+  document.getElementById('dudo-loser').textContent = '';
+  showScreen('s-dudo');
+}
+
+function resolveDudo(bidOk) {
+  const ctx = G.dudoCtx;
+  const {qty, face: f} = ctx.bid;
+  const loserIdx = bidOk ? ctx.chalIdx : ctx.bidderIdx;
+
+  document.getElementById('dudo-result').textContent =
+    bidOk ? `✓ BID STOOD — ${qty}× ${faceName(f)} confirmed` : `✗ BID FAILED — not enough ${faceName(f)}`;
+  document.getElementById('dudo-result').style.color = bidOk ? 'var(--success)' : 'var(--danger)';
+
+  G.players[loserIdx].dice--;
+  const loser = G.players[loserIdx];
+  document.getElementById('dudo-loser').textContent =
+    loser.dice > 0
+      ? `${loser.name} loses a die (${loser.dice} remaining)`
+      : `${loser.name} has been eliminated! 💀`;
+  document.getElementById('dudo-loser').style.color = loser.dice > 0 ? 'var(--gold2)' : 'var(--danger)';
+
+  if (loser.dice === 0) {
+    sfxLose();
+    toast(`${loser.name} is eliminated!`, 'danger');
+  } else {
+    sfxLose();
+    toast(`${loser.name} loses a die`, 'danger');
+  }
+
+  const alive = G.players.filter(p => p.dice > 0);
+  if (alive.length <= 1) {
+    const w = alive[0] || G.players[0];
+    sfxWin();
+    document.getElementById('winner-txt').textContent = `${w.name} Wins!`;
+    setTimeout(() => {
+      showScreen('s-over');
+      launchConfetti();
+    }, 2200);
+    return;
+  }
+
+  const winnerIdx = bidOk ? ctx.bidderIdx : ctx.chalIdx;
+  let nextStart = winnerIdx;
+  if (G.players[winnerIdx].dice === 0) {
+    do { nextStart = (nextStart + 1) % G.players.length; }
+    while (G.players[nextStart].dice === 0);
+  }
+  G.startIdx = nextStart;
+  toast(`${G.players[nextStart].name} starts next round`, 'info');
+  setTimeout(() => beginRound(), 2400);
+}
+
+// ══════════════════════════════════════════════
+// SCREEN
+// ══════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById(id);
+  el.classList.add('active');
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+// ══════════════════════════════════════════════
+// BACKGROUND FLOATING DICE
+// ══════════════════════════════════════════════
+(function initBgDice() {
+  const c = document.createElement('div');
+  c.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden';
+  document.body.insertBefore(c, document.body.firstChild);
+  const faces = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+  const cols  = ['#e8b830','#ff5555','#44dd77','#5588ff','#cc44ff','#ff8833','#22ccdd','#ff66bb'];
+
+  // Floating animated dice
+  for (let i = 0; i < 18; i++) {
+    const el = document.createElement('div');
+    const sz  = .7 + Math.random() * 2.8;
+    const x   = Math.random() * 96;
+    const dur = 22 + Math.random() * 55;
+    const del = -(Math.random() * 70);
+    const op  = .03 + Math.random() * .07;
+    el.textContent = faces[Math.floor(Math.random() * 6)];
+    el.style.cssText = `position:absolute;left:${x}%;font-size:${sz}rem;opacity:${op};animation:bgFloat ${dur}s linear ${del}s infinite;color:${cols[Math.floor(Math.random()*cols.length)]};user-select:none;line-height:1`;
+    c.appendChild(el);
+  }
+})();
+</script>
+</body>
+</html>
