@@ -6,9 +6,9 @@ Aashish Gupta; AashishGupta.webp; studied at the Indian Institute of Science bef
 Peter Wan; PeterWan.webp; received his degree from the University of Cambridge and now works on new models for pedestrian dynamics.
 Alex Dixon; AlexDixon.webp; works on particle-based simulation of highly elongated particles and is sponsored by Syngenta.
 Andy Zeng; AndyZeng.webp; obtained an MSc in Advanced Chemical Engineering in 2023 and now develops continuum models for suspensions.
-Xuan Li; XuanLi.webp; was awarded his PhD for his work on new models for colloidal and granular suspension rheology.; https://scholar.google.co.uk/citations?user=WQH-DDwAAAAJ&hl=en&oi=ao
 
 Former Members
+Xuan Li; XuanLi.webp; was awarded his PhD for his work on new models for colloidal and granular suspension rheology.; https://scholar.google.co.uk/citations?user=WQH-DDwAAAAJ&hl=en&oi=ao
 Bhanu Bhowmik; BhanuBhowmik.webp; is a soft matter physicist specialising in glasses, amorphous solids and suspensions. He now works at IISER Pune.; https://scholar.google.co.uk/citations?hl=en&user=OiIyaT0AAAAJ
 Alex Robertson; AlexRobertson.webp; worked in the group until 2025, and studied the rheology of granular ellipsoids.
 Yankai Li; YankaiLi.webp; left the group in 2024 having developed new models for colloidal gelation. He now works at SiCarrier.; https://scholar.google.co.uk/citations?hl=en&user=zYSDLm4AAAAJ
