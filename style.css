@@ -22,9 +22,14 @@ body {
 .hero {
     background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
     color: white;
-    padding: 14rem 2rem 16rem;
+    padding: 2rem;
     position: relative;
     overflow: hidden;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .hero::before {
