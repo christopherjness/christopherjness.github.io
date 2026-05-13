@@ -8,12 +8,24 @@
 </head>
 <body>
     <header class="hero">
-        <img src="photos/particles.png" alt="" class="hero-bg" loading="lazy" decoding="async">
-        <canvas id="particles-canvas" class="particles-canvas"></canvas>
-        <div class="spotlight"></div>
-        <div class="hero-content">
-            <h1>moving particles</h1>
-            <p>research lab at the University of Edinburgh</p>
+        <div class="hero-bg-layer">
+            <img src="photos/particles.png" alt="" class="hero-bg" loading="lazy" decoding="async">
+            <canvas id="particles-canvas" class="particles-canvas"></canvas>
+            <div class="spotlight"></div>
+        </div>
+        <div class="hero-panels">
+            <div class="hero-panel">
+                <div class="hero-content">
+                    <h1>moving particles</h1>
+                    <p>research lab at the University of Edinburgh</p>
+                </div>
+            </div>
+            <div class="hero-panel">
+                <div class="hero-content">
+                    <h2>Considering doing a PhD?</h2>
+                    <p>We work on the physics of dense suspensions, building particle simulations and continuum models that link microscopic dynamics to bulk flow, with one foot in soft matter and the other in chemical engineering processes. Email <a href="mailto:chris.ness@ed.ac.uk">chris.ness@ed.ac.uk</a> with a CV and a sentence on what research problem you aspire to solve.</p>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -213,18 +225,19 @@
 
     // Spotlight effect for hero section
     const hero = document.querySelector('.hero');
+    const heroBgLayer = document.querySelector('.hero-bg-layer');
     const spotlight = document.querySelector('.spotlight');
     let mouseX = null;
     let mouseY = null;
-    
-    if (hero && spotlight) {
+
+    if (hero && heroBgLayer && spotlight) {
         hero.addEventListener('mousemove', (e) => {
-            const rect = hero.getBoundingClientRect();
+            const rect = heroBgLayer.getBoundingClientRect();
             mouseX = e.clientX - rect.left;
             mouseY = e.clientY - rect.top;
             spotlight.style.background = `radial-gradient(circle 300px at ${mouseX}px ${mouseY}px, rgba(255,255,255,0.15), transparent)`;
         });
-        
+
         hero.addEventListener('mouseleave', () => {
             spotlight.style.background = 'none';
             mouseX = null;
@@ -240,8 +253,9 @@
         let animationFrameId;
 
         function resizeCanvas() {
-            canvas.width = hero.offsetWidth;
-            canvas.height = hero.offsetHeight;
+            const layer = heroBgLayer || hero;
+            canvas.width = layer.offsetWidth;
+            canvas.height = layer.offsetHeight;
         }
 
         class Particle {
@@ -306,7 +320,7 @@
         });
 
         if (typeof ResizeObserver !== 'undefined') {
-            new ResizeObserver(() => resizeCanvas()).observe(hero);
+            new ResizeObserver(() => resizeCanvas()).observe(heroBgLayer || hero);
         }
 
         init();

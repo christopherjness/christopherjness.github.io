@@ -9,6 +9,15 @@
 
 html {
     scroll-behavior: smooth;
+    scroll-snap-type: y proximity;
+}
+
+.hero-panel,
+.expertise,
+.collaborations,
+.team,
+.publications {
+    scroll-snap-align: start;
 }
 
 body {
@@ -22,17 +31,20 @@ body {
 .hero {
     background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
     color: white;
-    padding: 2rem;
     position: relative;
-    overflow: hidden;
-    min-height: 100vh;
-    min-height: 100dvh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
-.hero::before {
+.hero-bg-layer {
+    position: sticky;
+    top: 0;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    z-index: 1;
+}
+
+.hero-bg-layer::after {
     content: '';
     position: absolute;
     top: 0;
@@ -41,6 +53,7 @@ body {
     height: 100%;
     background: linear-gradient(135deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.7) 100%);
     z-index: 1;
+    pointer-events: none;
 }
 
 .hero-bg {
@@ -73,6 +86,22 @@ body {
     pointer-events: none;
     z-index: 3;
     transition: background 0.05s ease;
+}
+
+.hero-panels {
+    position: relative;
+    margin-top: -100vh;
+    margin-top: -100dvh;
+    z-index: 2;
+}
+
+.hero-panel {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
 }
 
 @keyframes fadeInUp {
@@ -129,6 +158,28 @@ body {
     font-weight: 400;
     opacity: 0.95;
     animation: fadeInUp 0.8s ease-out 0.2s backwards;
+}
+
+.hero-content h2 {
+    font-size: 3rem;
+    margin: 0 auto 1.5rem;
+    font-weight: 700;
+    max-width: 800px;
+    letter-spacing: -0.02em;
+    text-shadow: 0 2px 20px rgba(0,0,0,0.3);
+    color: white;
+}
+
+.hero-content a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: rgba(255,255,255,0.5);
+    transition: text-decoration-color 0.2s;
+}
+
+.hero-content a:hover {
+    text-decoration-color: rgba(255,255,255,1);
 }
 
 /* ─── Buttons ──────────────────────────────────────────────────────────────── */
