@@ -12,11 +12,7 @@ html {
     scroll-snap-type: y proximity;
 }
 
-.hero-panel,
-.expertise,
-.collaborations,
-.team,
-.publications {
+.hero-panel {
     scroll-snap-align: start;
 }
 
@@ -180,6 +176,14 @@ body {
 
 .hero-content a:hover {
     text-decoration-color: rgba(255,255,255,1);
+}
+
+.hero-panel:nth-of-type(2) .hero-content h2 {
+    font-size: 2.25rem;
+}
+
+.hero-panel:nth-of-type(2) .hero-content p {
+    font-size: 1.15rem;
 }
 
 /* ─── Buttons ──────────────────────────────────────────────────────────────── */
