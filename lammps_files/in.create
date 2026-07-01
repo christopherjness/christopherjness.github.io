@@ -8,8 +8,8 @@ region reg prism 0 14.6381 0 14.6381 0 14.6381 0 0 0 units box
 create_box 2 reg
 
 # GENERATE THE PARTICLES AND SPECIFY THEIR SIZE
-create_atoms 1 random 100 123456 NULL
-create_atoms 2 random 100 123457 NULL
+create_atoms 1 random 50 123456 NULL
+create_atoms 2 random 50 123457 NULL
 set type 1 diameter 2.8
 set type 2 diameter 2
 set type 1 density 1
